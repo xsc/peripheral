@@ -56,7 +56,7 @@ There is a fair amount of repetition in here which `peripheral.core/defsystem` t
   (connect :a :source :c))
 ```
 
-The configuration will be `assoc`'d automatically, the dependency map is created using the `^:global` metadata
+The configuration will be `assoc`'d automatically (__wip!__), the dependency map is created using the `^:global` metadata
 and the `connect` statement.
 
 ## License
