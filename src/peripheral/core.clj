@@ -81,13 +81,20 @@
   "Assoc configurations into the given System using the given configuration
    dependency map."
   [system configurations]
-  (reduce
-    (fn [system [component-key configuration-map]]
-      (reduce
-        (fn [system [field-key config-key]]
-          (assoc-in system [component-key field-key] (get system config-key)))
-        system configuration-map))
-    system configurations))
+  (let [configuration-keys (->> (vals configurations)
+                                (mapcat vals)
+                                (set))
+        idle-configurations (map (juxt identity #(get system %)) configuration-keys)
+        loaded-configurations (->> (for [[k cfg] idle-configurations]
+                                     [k (load-configuration! cfg)])
+                                   (into {}))]
+    (reduce
+      (fn [system [component-key configuration-map]]
+        (reduce
+          (fn [system [field-key config-key]]
+            (assoc-in system [component-key field-key] (loaded-configurations config-key)))
+          system configuration-map))
+      system configurations)))
 
 (defn start-system-with-meta
   "Start the given component using previously stored metadata."
