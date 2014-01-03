@@ -24,27 +24,8 @@ Systems typically consist of different types of entities:
 
 Let's say we want to have a system that consists of the components `:a`, `:b` and `:c`, backed by some
 kind of thread pool, where `:a` gets data from `:c`. Also, the whole thing is configured by an option map.
-Using `stuartsierra/component` directly this might look like the following:
 
-```clojure
-(require '[com.stuartsierra.component :as component])
-(defrecord Sys [config a b c thread-pool]
-  component/Lifecycle
-  (start [this]
-    (let [system-with-config (reduce
-                               (fn [this k]
-                                 (update-in this [k] #(assoc % :config config)))
-                               this [:a :b :c :thread-pool])
-          system (component/system-using system-with-config
-                                         {:a {:source :c :thread-pool :thread-pool}
-                                          :b {:thread-pool :thread-pool}
-                                          :c {:thread-pool :thread-pool}])]
-      (component/start-system system [:a :b :c :thread-pool])))
-  (stop [this]
-    (component/stop-system this [:a :b :c :thread-pool])))
-```
-
-There is a fair amount of repetition in here which `peripheral.core/defsystem` tries to address:
+The `defsystem` macro helps with delcarativley building up your system:
 
 ```clojure
 (require '[peripheral.core :refer [defsystem connect]])
@@ -54,8 +35,10 @@ There is a fair amount of repetition in here which `peripheral.core/defsystem` t
   (connect :a :source :c))
 ```
 
-The configuration will be `assoc`'d automatically, the dependency map is created using the `^:global` metadata
-and the `connect` statement. Let's try this using a dummy component `X`:
+The configuration will be `assoc`'d automatically, the dependency map is created using the `^:global`/`^:config` metadata
+and the `connect` statement.
+
+Let's try this using a dummy component `X`:
 
 ```clojure
 (defrecord X [name config thread-pool]
