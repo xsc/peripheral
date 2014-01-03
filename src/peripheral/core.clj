@@ -19,13 +19,6 @@
   (load-configuration! [_]
     nil))
 
-(defrecord ConfigComponent [data configuration]
-  component/Lifecycle
-  (start [this]
-    (assoc this :data (load-configuration! configuration)))
-  (stop [this]
-    this))
-
 ;; ## Logic
 
 (defn connect
@@ -37,6 +30,13 @@
      (assoc-in m [:dependencies src-id src-key] dst-id)
      m)))
 
+(defn with-config
+  "Associate a key in the component identified by `src-id` with the configuration stored
+   at `cfg-key`."
+  ([m src-id cfg-key] (with-config m src-id cfg-key cfg-key))
+  ([m src-id src-key cfg-key]
+   (assoc-in m [:configurations src-id src-key] cfg-key)))
+
 (defmacro on
   "Register handlers."
   [m k & fn-body]
@@ -44,41 +44,60 @@
 
 ;; ## System
 
-(defn- global-component?
+(defn- global?
   "Is the given symbol representing a global component?"
   [sym]
-  (let [m (meta sym)]
-    (some #(get m %) [:global :config])))
+  (-> sym meta :global))
 
-(defn- config-component?
-  "Is the given symbol representing a configuration component?"
+(defn- config?
+  "Is the given symbol representing a configuration?"
   [sym]
   (-> sym meta :config))
 
 (defn initial-dependencies
   "Create initial dependency map."
-  [components]
+  [m components]
   (let [{:keys [local global]} (reduce
                                  (fn [m sym]
-                                   (let [k (if (global-component? sym) :global :local)]
+                                   (let [k (if (global? sym) :global :local)]
                                      (update-in m [k] conj (keyword sym))))
                                  {} components)]
     (->> (for [a local b global] [a b])
-         (reduce #(apply connect %1 %2) {}))))
+         (reduce #(apply connect %1 %2) m))))
+
+(defn initial-configurations
+  "Create initial configuration map."
+  [m components configurations]
+  (->> (for [a components b configurations]
+         [(keyword a) (keyword b)])
+       (reduce #(apply with-config %1 %2) m)))
 
 (defn attach-system-meta
   "Attach system metadata to component record."
   [system data]
   (vary-meta system assoc ::data data))
 
+(defn using-configurations
+  "Assoc configurations into the given System using the given configuration
+   dependency map."
+  [system configurations]
+  (reduce
+    (fn [system [component-key configuration-map]]
+      (reduce
+        (fn [system [field-key config-key]]
+          (assoc-in system [component-key field-key] (get system config-key)))
+        system configuration-map))
+    system configurations))
+
 (defn start-system-with-meta
   "Start the given component using previously stored metadata."
   [system component-keys]
-  (let [{:keys [dependencies on]} (-> system meta ::data)
+  (let [{:keys [dependencies configurations on]} (-> system meta ::data)
         init (:start on identity)
         stop (:stop on identity)]
     (-> system
         init
+        (using-configurations configurations)
         (component/system-using dependencies)
         (component/start-system component-keys))))
 
@@ -89,39 +108,22 @@
   (when-let [stop (-> system meta ::data :on :stop)]
     (stop system)))
 
-(defn create-configuration-components
-  "Convert a map of component-ID/`peripheral.Config` pairs to the respective
-   component map."
-  [configurations]
-  (->> (for [[k v] configurations]
-         [k (map->ConfigComponent {:configuration v})])
-       (into {})))
-
 (defmacro defsystem
   "Create new system component record."
-  [id components & impl]
-  (let [T (symbol (str "system_" (name id)))
-        ->system (symbol (str "map->" (name T)))
+  [id fields & impl]
+  (let [components (remove config? fields)
         component-keys (map keyword components)
-        configurations (filter config-component? components)
+        configurations (filter config? fields)
         [system-logic specifics] (split-with (complement symbol?) impl)]
-    `(do
-       (defrecord ~T [~@components]
-         component/Lifecycle
-         (start [this#]
-           (-> this#
-               (attach-system-meta
-                 (-> ~(initial-dependencies components)
-                     ~@system-logic))
-               (start-system-with-meta [~@component-keys])))
-         (stop [this#]
-           (stop-system-with-meta this# [~@component-keys]))
-         ~@specifics)
-
-       (defn ~id
-         ([components#] (~id components# nil))
-         ([components# configurations#]
-          (-> (create-configuration-components configurations#)
-              (merge components#)
-              (select-keys [~@component-keys])
-              ~->system))))))
+    `(defrecord ~id [~@fields]
+       component/Lifecycle
+       (start [this#]
+         (-> this#
+             (attach-system-meta
+               (-> ~(-> {}
+                        (initial-dependencies components)
+                        (initial-configurations components configurations))
+                   ~@system-logic))
+             (start-system-with-meta [~@component-keys])))
+       (stop [this#]
+         (stop-system-with-meta this# [~@component-keys])) ~@specifics)))
