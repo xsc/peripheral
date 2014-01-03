@@ -28,7 +28,6 @@ Using `stuartsierra/component` directly this might look like the following:
 
 ```clojure
 (require '[com.stuartsierra.component :as component])
-
 (defrecord Sys [config a b c thread-pool]
   component/Lifecycle
   (start [this]
@@ -48,16 +47,38 @@ Using `stuartsierra/component` directly this might look like the following:
 There is a fair amount of repetition in here which `peripheral.core/defsystem` tries to address:
 
 ```clojure
-(require '[peripheral.core :refer [defsystem]])
-
+(require '[peripheral.core :refer [defsystem connect]])
 (defsystem Sys [^:config config
                 ^:global thread-pool
                 a b c]
   (connect :a :source :c))
 ```
 
-The configuration will be `assoc`'d automatically (__wip!__), the dependency map is created using the `^:global` metadata
-and the `connect` statement.
+The configuration will be `assoc`'d automatically, the dependency map is created using the `^:global` metadata
+and the `connect` statement. Let's try this using a dummy component `X`:
+
+```clojure
+(defrecord X [name config thread-pool]
+  component/Lifecycle
+  (start [this]
+    (println name "has:" config)
+    this))
+
+(def my-system
+  (map->Sys {:config {:config-key "config-value"}
+             :a (map->X {:name :a})
+             :b (map->X {:name :b})
+             :c (map->X {:name :c})
+             :thread-pool (map->X {:name :thread-pool})}))
+
+(component/start my-system)
+;; :thread-pool has: {:config-key config-value}
+;; :b has: {:config-key config-value}
+;; :c has: {:config-key config-value}
+;; :a has: {:config-key config-value}
+;; => #user.Sys{:config {:config-key "config-value"}, ... }
+```
+As you can see, the different components all output the same configuration.
 
 ## License
 
