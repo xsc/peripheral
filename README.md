@@ -28,7 +28,9 @@ kind of thread pool, where `:a` gets data from `:c`. Also, the whole thing is co
 The `defsystem` macro helps with delcarativley building up your system:
 
 ```clojure
-(require '[peripheral.core :refer [defsystem connect]])
+(require '[peripheral.core :refer [defsystem connect]]
+         '[com.stuartsierra.component :as component])
+
 (defsystem Sys [^:config config
                 ^:global thread-pool
                 a b c]
@@ -54,14 +56,22 @@ Let's try this using a dummy component `X`:
              :c (map->X {:name :c})
              :thread-pool (map->X {:name :thread-pool})}))
 
-(component/start my-system)
+(alter-var-root #'my-system component/start)
 ;; :thread-pool has: {:config-key config-value}
 ;; :b has: {:config-key config-value}
 ;; :c has: {:config-key config-value}
 ;; :a has: {:config-key config-value}
 ;; => #user.Sys{:config {:config-key "config-value"}, ... }
+
+(-> my-system :a :source :name)
+;; => :c
+
+(map (comp :name :thread-pool #(get my-system %)) [:a :b :c])
+;; => (:thread-pool :thread-pool :thread-pool)
 ```
-As you can see, the different components all output the same configuration.
+
+As you can see, the different components all output the same configuration and the different components are interconnected
+as desired.
 
 ## License
 
