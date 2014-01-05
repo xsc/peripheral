@@ -8,7 +8,11 @@ Stuart Sierra's [component](https://github.com/stuartsierra/component) library.
 
 ## Usage
 
-__peripheral__ offers ways to specify systems of components and their interconnections.
+__Leiningen (via [Clojars](https://clojars.org/peripheral))__
+
+```clojure
+[peripheral "0.1.0-SNAPSHOT"]
+```
 
 ### `defsystem`
 
