@@ -5,14 +5,14 @@
 
 ;; ## Protocol
 
-(defprotocol+ Config
+(defprotocol+ Configuration
   "Protocol for possibly loadable/reloadable Configurations."
   (load-configuration! [this]
     "Load the configuration data."))
 
 ;; ## Basic Implementations
 
-(extend-protocol Config
+(extend-protocol Configuration
   clojure.lang.AFunction
   (load-configuration! [f]
     (f))
