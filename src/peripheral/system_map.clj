@@ -83,4 +83,3 @@
   "Initialize the system metadata using the given system map creation function."
   [system f]
   (set-system-meta system (f system)))
-
