@@ -10,68 +10,103 @@ Stuart Sierra's [component](https://github.com/stuartsierra/component) library.
 
 __peripheral__ offers ways to specify systems of components and their interconnections.
 
-__Note that some of the things described here are works in progress!__
-
-### Create a System
-
-Systems typically consist of different types of entities:
-
-- __configuration__: datastore access has to be configured, server ports, etc... Configurations can be
-  static or be loaded at system startup, and should be accessible by every component in the system,
-- __global components__: these should be available to all parts of the system (e.g. thread pool,
-  message bus, datastore, ...);
-- __other components__: these fulfill specific tasks, interacting with other parts of the system.
-
-Let's say we want to have a system that consists of the components `:a`, `:b` and `:c`, backed by some
-kind of thread pool, where `:a` gets data from `:c`. Also, the whole thing is configured by an option map.
+### `defsystem`
 
 The `defsystem` macro helps with delcarativley building up your system:
 
 ```clojure
-(require '[peripheral.core :refer [defsystem connect]]
-         '[com.stuartsierra.component :as component])
-
+(require '[peripheral.core :as peripheral :refer [defsystem connect]])
 (defsystem Sys [^:config config
                 ^:global thread-pool
                 a b c]
   (connect :a :source :c))
 ```
 
-The configuration will be `assoc`'d automatically, the dependency map is created using the `^:global`/`^:config` metadata
-and the `connect` statement.
+This creates a simple Clojure record type `Sys` with the fields given in the system vector. Note the metadata
+attached to the single fields: `:global` marks this as a component that should be accessible by all other ones,
+while `:config` designated a field as configuration data; everything else are simple components that can be
+further specified using the body of `defsystem`:
 
-Let's try this using a dummy component `X`:
+- `(peripheral.core/connect src k dst)`: make the component identified by `dst` a dependency of `src`, i.e. on startup `dst` will
+  be assoc'd into `src` using the key `k`;
+- `(peripheral.core/connect src dst)`: same as before but `dst` will be used as the key in `src`;
+- `(peripheral.core/configure src k dst)`: make the configuration identified by `dst` a dependency of `src`, i.e. on startup the
+  configuration will be assoc'd into `src` using the key `k`;
+- `(peripheral.core/configure src dst)`: same as before but `dst` will be used as the key in `src`.
+
+By default, every component marked as `:global` will be connected to every normal one, and every configuration marked by `:config`
+will be used for every component (including global ones).
+
+### Example
+
+Let's create an instance of the above system using a dummy component `X` that prints its name and configuration on startup:
 
 ```clojure
 (defrecord X [name config thread-pool]
-  component/Lifecycle
+  com.stuartsierra.component/Lifecycle
   (start [this]
-    (println name "has:" config)
+    (println "starting" name "using configuration:" config)
     this))
+(def make-x #(X. %1 nil nil))
+```
 
-(def my-system
-  (map->Sys {:config {:config-key "config-value"}
-             :a (map->X {:name :a})
-             :b (map->X {:name :b})
-             :c (map->X {:name :c})
-             :thread-pool (map->X {:name :thread-pool})}))
+As `Sys` is a normal record we can use Clojure's constructor functions:
 
-(alter-var-root #'my-system component/start)
-;; :thread-pool has: {:config-key config-value}
-;; :b has: {:config-key config-value}
-;; :c has: {:config-key config-value}
-;; :a has: {:config-key config-value}
-;; => #user.Sys{:config {:config-key "config-value"}, ... }
+```clojure
+(def system
+  (map->Sys {:thread-pool (make-x :thread-pool)
+             :a           (make-x :a)
+             :b           (make-x :b)
+             :c           (make-x :c)
+             :config      {:config-key "config-value"}}))
+```
 
-(-> my-system :a :source :name)
-;; => :c
+On startup, the configuration will be distributed to all components and thread pool will be usable by `:a`, `:b` and `:c`
+(`peripheral.core/start` is just a reference to `com.stuartsierra.component/start`):
 
-(map (comp :name :thread-pool #(get my-system %)) [:a :b :c])
+```clojure
+(alter-var-root #'system peripheral/start)
+;; starting :thread-pool using configuration: {:config-key config-value}
+;; starting :b using configuration: {:config-key config-value}
+;; starting :c using configuration: {:config-key config-value}
+;; starting :a using configuration: {:config-key config-value}
+;; => #user.Sys{:config {:config-key "config-value"}, ...}
+```
+
+We can check if all dependencies are correct (although that reponsibility lies by `stuartsierra/component`):
+
+```clojure
+(map (comp :name :thread-pool #(% system)) [:a :b :c])
 ;; => (:thread-pool :thread-pool :thread-pool)
 ```
 
-As you can see, the different components all output the same configuration and the different components are interconnected
-as desired.
+### `start-subsystem`
+
+Sometimes you do not want to start all components in your system. For example, a system might consist of a producer,
+a queue and a consumer. The queue might be implemented in a persistent way (using the filesystem, RabbitMQ, Redis, ...),
+meaning that producer and consumer do not have to reside inside the same process or on the same node. So, a producer
+system only needs the producer and queue components, whilst the consumer system only relies on queue and consumer
+components.
+
+Instead of creating three systems (`producer-consumer`, `producer` and `consumer`) you can use peripheral's subsystem
+functionality that will only start the components you want (and their dependencies). Using the var `system` from the above
+example this might look like the following:
+
+```clojure
+(alter-var-root #'system peripheral/start-subsystem [:c])
+;; starting :thread-pool using configuration: {:config-key config-value}
+;; starting :c using configuration: {:config-key config-value}
+;; => #user.Sys{:config {:config-key "config-value"}, ...}
+```
+
+(You can achieve the same by creating a system record that contains the keys of the components to be started, of course,
+but peripheral offers you automatic dependency resolution which is nice, I guess.)
+
+### Configurations
+
+Fields marked as `:config` have to be filled with values implementing `peripheral.configuration/Configuration`, more specifically
+the `load-configuration!` function. As the name says this is supposed to retrieve configuration information on startup (and is
+already implemented for maps, which return themselves, and functions, which call themselves without arguments).
 
 ## License
 
