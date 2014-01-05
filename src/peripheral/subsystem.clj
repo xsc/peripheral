@@ -29,15 +29,20 @@
        (concat components)
        (set)))
 
-(defn- subsystem-components
+(defn subsystem-components-from-dependencies
+  [dependencies components]
+  (-> dependencies
+      (map->graph)
+      (subsystem-components-from-graph components)))
+
+(defn subsystem-components
   "Get all component keys needed to construct the given subsystem from
    the given system record."
   [system components]
   (-> system
       (sys/system-meta)
       :dependencies
-      (map->graph)
-      (subsystem-components-from-graph components)))
+      (subsystem-components-from-dependencies components)))
 
 (defn initialize-subsystem-meta
   "Initialize the peripheral metadata to represent the given subsystem."
