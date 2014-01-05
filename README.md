@@ -12,7 +12,7 @@ __peripheral__ offers ways to specify systems of components and their interconne
 
 ### `defsystem`
 
-The `defsystem` macro helps with delcarativley building up your system:
+The `defsystem` macro helps with declarativley building up your system:
 
 ```clojure
 (require '[peripheral.core :as peripheral :refer [defsystem connect]])
@@ -107,6 +107,22 @@ but peripheral offers you automatic dependency resolution which is nice, I guess
 Fields marked as `:config` have to be filled with values implementing `peripheral.configuration/Configuration`, more specifically
 the `load-configuration!` function. As the name says this is supposed to retrieve configuration information on startup (and is
 already implemented for maps, which return themselves, and functions, which call themselves without arguments).
+
+```clojure
+(defn config! []
+  (println "loading configuration ...")
+  (Thread/sleep 1000)
+  {:config-key "config-value"})
+
+(alter-var-root #'system assoc :config config!)
+(alter-var-root #'system peripheral/start)
+;; loading configuration ...
+;; starting :thread-pool using configuration: {:config-key config-value}
+;; starting :b using configuration: {:config-key config-value}
+;; starting :c using configuration: {:config-key config-value}
+;; starting :a using configuration: {:config-key config-value}
+;; => #user.Sys{:config #<user$config_BANG_ user$config_BANG_@5565c037>, ...}
+```
 
 ## License
 
