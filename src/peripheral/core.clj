@@ -1,23 +1,6 @@
 (ns peripheral.core
-  (:require [com.stuartsierra.component :as component]))
-
-;; ## Configuration
-
-(defprotocol Config
-  "Protocol for System configurations."
-  (load-configuration! [this]
-    "Load the configuration data."))
-
-(extend-protocol Config
-  clojure.lang.AFunction
-  (load-configuration! [f]
-    (f))
-  clojure.lang.IPersistentMap
-  (load-configuration! [m]
-    m)
-  nil
-  (load-configuration! [_]
-    nil))
+  (:require [peripheral.configuration :refer [load-configuration!]]
+            [com.stuartsierra.component :as component]))
 
 ;; ## Logic
 
