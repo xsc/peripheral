@@ -20,6 +20,7 @@ The `defsystem` macro helps with declarativley building up your system:
 
 ```clojure
 (require '[peripheral.core :as peripheral :refer [defsystem connect]])
+
 (defsystem Sys [^:config config
                 ^:global thread-pool
                 a b c]
@@ -126,6 +127,50 @@ already implemented for maps, which return themselves, and functions, which call
 ;; starting :c using configuration: {:config-key config-value}
 ;; starting :a using configuration: {:config-key config-value}
 ;; => #user.Sys{:config #<user$config_BANG_ user$config_BANG_@5565c037>, ...}
+```
+
+### `defcomponent`
+
+In cases where a component consists of one or multiple independent entities, the `defcomponent` macro can provide a concise way
+of defining it. By providing dependencies (i.e. components or pieces of data that have to be initialized in advance) and
+stateful fields separately, startup and shutdown functions can be generated automatically.
+
+```clojure
+(require '[peripheral.core :as peripheral :refer [defcomponent]])
+
+(defcomponent Consumer [input-queue]
+  :data   (atom [])
+  :thread (doto (Thread. #(consumer-loop input-queue data))
+            (.start))
+          #(.interrupt ^Thread %))
+
+(def my-consumer (map->Consumer {:input-queue ...}))
+(alter-var-root #'my-consumer peripheral/start)
+
+(:thread my-consumer) ;; => #<Thread ...>
+@(:data my-consumer)  ;; => {}
+```
+
+Component data flows top-to-bottom, meaning that fields that come later in the list can rely on those preceding them (and refer
+to them by their symbol).
+
+### Systems/Components + Protocols
+
+`defsystem` and `defcomponent` allow for a series of `defrecord`-like protocol implementations following
+their description, e.g.:
+
+```clojure
+(defcomponent DerefComponent [initial-value]
+  :data (atom initial-value)
+
+  clojure.lang.IDeref
+  (deref [_] @data))
+
+(def my-component (map->DerefComponent {:initial-value 123}))
+(alter-var-root #'my-component peripheral/start)
+
+@(:data my-component) ;; => 123
+@my-component         ;; => 123
 ```
 
 ## License
