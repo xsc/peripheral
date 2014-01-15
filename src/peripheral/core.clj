@@ -2,6 +2,7 @@
   (:require [peripheral.configuration :refer [load-configuration!]]
             [peripheral.system-map :as sys]
             [peripheral.subsystem :as sub]
+            [peripheral.component :as c]
             [com.stuartsierra.component :as component]
             [potemkin :refer [import-vars]]))
 
@@ -12,6 +13,8 @@
    connect configure]
   [peripheral.subsystem
    start-subsystem]
+  [peripheral.component
+   defcomponent]
   [com.stuartsierra.component
    start stop])
 
