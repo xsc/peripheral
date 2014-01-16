@@ -54,3 +54,29 @@
         (:a stopped) => nil
         (:b stopped) => nil
         (x stopped) => nil))
+
+;; ## Lifecycle
+
+(defcomponent Test [state-atom n]
+  :peripheral/init (fn [_] (swap! state-atom conj :init) _)
+  :peripheral/start (fn [_] (swap! state-atom conj :start) _)
+  :peripheral/stop (fn [_] (swap! state-atom conj :stop) _)
+  :peripheral/done (fn [_] (swap! state-atom conj :done) _)
+
+  :a (do (swap! state-atom conj :init-a) (inc n))
+     #(do % (swap! state-atom conj :cleanup-a) nil))
+
+(fact "about 'defcomponent' lifecycle functions"
+      (let [a (atom [])
+            t (map->Test {:state-atom a :n 0})]
+        @a => empty?
+        (:n t) => 0
+        (:a t) => nil
+        (let [started (start t)]
+          @a => [:init :init-a :start]
+          (:n started) => 0
+          (:a started) => 1
+          (let [stopped (stop started)]
+            @a => [:init :init-a :start :stop :cleanup-a :done]
+            (:n stopped) => 0
+            (:a stopped) => nil))))
