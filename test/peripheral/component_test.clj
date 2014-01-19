@@ -58,10 +58,10 @@
 ;; ## Lifecycle
 
 (defcomponent Test [state-atom n]
-  :peripheral/init (fn [_] (swap! state-atom conj :init) _)
-  :peripheral/start (fn [_] (swap! state-atom conj :start) _)
+  :peripheral/start (fn [_] (swap! state-atom conj :init) _)
+  :peripheral/started (fn [_] (swap! state-atom conj :start) _)
   :peripheral/stop (fn [_] (swap! state-atom conj :stop) _)
-  :peripheral/done (fn [_] (swap! state-atom conj :done) _)
+  :peripheral/stopped (fn [_] (swap! state-atom conj :done) _)
 
   :a (do (swap! state-atom conj :init-a) (inc n))
      #(do % (swap! state-atom conj :cleanup-a) nil))

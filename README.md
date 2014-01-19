@@ -131,8 +131,8 @@ already implemented for maps, which return themselves, and functions, which call
 
 ### `defcomponent`
 
-In cases where a component consists of one or multiple independent entities, the `defcomponent` macro can provide a concise way
-of defining it. By providing dependencies (i.e. components or pieces of data that have to be initialized in advance) and
+The `defcomponent` macro can provide a concise way of defining components. By providing
+dependencies (i.e. components or pieces of data that have to be initialized in advance) and
 stateful fields separately, startup and shutdown functions can be generated automatically.
 
 ```clojure
@@ -153,6 +153,16 @@ stateful fields separately, startup and shutdown functions can be generated auto
 
 Component data flows top-to-bottom, meaning that fields that come later in the list can rely on those preceding them (and refer
 to them by their symbol).
+
+### Component Startup/Shutdown
+
+Sometimes it is necessary to modify a component as a whole to achieve a certain lifecycle. This
+can be done by using the following special keywords in the body of `defcomponent`:
+
+- `:peripheral/start`: called at the beginning of the `start` operation (before any fields are initialized);
+- `:peripheral/started`: called at the end of the `start` operation (after all fields are initialized);
+- `:peripheral/stop`: called at the beginning of the `stop` operation (before any fields are cleaned up);
+- `:peripheral/stopped`: called at the end of the `stop` operation (after all fields are cleaned up).
 
 ### Systems/Components + Protocols
 

@@ -32,29 +32,27 @@
 
 (defn- create-start-form
   "Create component startup form initializing the fields in order of definition."
-  [fields {:keys [start init]} field-syms this]
+  [fields {:keys [start started]} field-syms this]
   (let [field-init-form `(reduce
                            #(%2 %1)
                            ~this
                            [~@(map-indexed
                                 (fn [i [field {:keys [start]}]]
-                                  (if (= field :peripheral/start)
-                                    start
-                                    `(fn [{:keys [~@(take i field-syms)] :as this#}]
-                                       (assoc this# ~field ~start))))
+                                  `(fn [{:keys [~@(take i field-syms)] :as this#}]
+                                     (assoc this# ~field ~start)))
                                 fields)])
-        component-init-form (if init
-                              `(let [~this (or (~init ~this) ~this)]
+        component-init-form (if start
+                              `(let [~this (or (~start ~this) ~this)]
                                  ~field-init-form)
                               field-init-form)
         component-start-form (if start
                                `(let [c# ~component-init-form]
-                                  (or (~start c#) c#))
+                                  (or (~started c#) c#))
                                component-init-form)]
     component-start-form))
 
 (defn- create-stop-form
-  [fields {:keys [stop done]} this]
+  [fields {:keys [stop stopped]} this]
   "Take a map of fields with start/stop logic and create the map to be used for
    cleanup."
   (let [stop-map (->> (for [[field m] fields]
@@ -71,9 +69,9 @@
                               `(let [~this (or (~stop ~this) ~this)]
                                  ~component-merge-form)
                               component-merge-form)
-        component-done-form (if done
+        component-done-form (if stopped
                               `(let [c# ~component-stop-form]
-                                 (or (~done c#) c#))
+                                 (or (~stopped c#) c#))
                               component-stop-form)]
     component-done-form))
 
@@ -95,10 +93,10 @@
    can manipulate the component record directly:
 
      (defcomponent TestComponent [...]
-       :peripheral/init  #(...)      ;; called before fields are initialized
-       :peripheral/start #(...)      ;; called after fields are initialized
-       :peripheral/stop  #(...)      ;; called before fields are cleaned up
-       :peripheral/done  #(...))     ;; called after fields are cleaned up
+       :peripheral/init    #(...)      ;; called before fields are initialized
+       :peripheral/started #(...)      ;; called after fields are initialized
+       :peripheral/stop    #(...)      ;; called before fields are cleaned up
+       :peripheral/stopped #(...))     ;; called after fields are cleaned up
 
    Note that these take a function, not a form, and only allow for one value!"
   [id dependencies & component-logic]
