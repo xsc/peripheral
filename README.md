@@ -148,7 +148,7 @@ stateful fields separately, startup and shutdown functions can be generated auto
 (alter-var-root #'my-consumer peripheral/start)
 
 (:thread my-consumer) ;; => #<Thread ...>
-@(:data my-consumer)  ;; => {}
+@(:data my-consumer)  ;; => []
 ```
 
 Component data flows top-to-bottom, meaning that fields that come later in the list can rely on those preceding them (and refer
