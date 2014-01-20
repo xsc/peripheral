@@ -8,7 +8,7 @@
 
 (import-vars
   [peripheral.system
-   defsystem]
+   defsystem restart]
   [peripheral.system-map
    connect configure]
   [peripheral.subsystem

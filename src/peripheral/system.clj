@@ -68,3 +68,17 @@
                (sub/initialize-subsystem-meta ~cfg-fn components#)
                (start-system-with-meta)))
          ~@specifics))))
+
+;; ## Restart
+
+(defn restart
+  "Restart the given system component record."
+  [system]
+  (let [{:keys [components]} (sys/system-meta system)]
+    (if-not (seq components)
+      (-> system
+          (component/stop)
+          (component/start))
+      (-> system
+          (component/stop)
+          (sub/start-subsystem components)))))
