@@ -27,7 +27,12 @@
                            [~@(map-indexed
                                 (fn [i [field {:keys [start]}]]
                                   `(fn [{:keys [~@(take i field-syms)] :as this#}]
-                                     (assoc this# ~field ~start)))
+                                     (try
+                                       (assoc this# ~field ~start)
+                                       (catch Throwable ex#
+                                         (throw
+                                           (Exception.
+                                             (str ~(str "Could not initialize field: " field "(") (.getMessage ex#) ")") ex#))))))
                                 fields)])
         component-init-form (if start
                               `(let [~this (or (~start ~this) ~this)]
