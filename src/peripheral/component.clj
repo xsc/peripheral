@@ -1,18 +1,6 @@
 (ns peripheral.component
-  (:require [com.stuartsierra.component :as component]))
-
-(defn- is-class-name?
-  "Check whether the given symbol represents a class name."
-  [s]
-  (when (symbol? s)
-    (when-let [v (resolve s)]
-      (cond (class? v) true
-            (var? v) (let [class-name (-> (str v)
-                                          (.substring 2)
-                                          (.replace "/" ".")
-                                          (.replaceAll "-" "_"))]
-                       (try (Class/forName class-name) (catch Throwable _)))
-            :else false))))
+  (:require [com.stuartsierra.component :as component]
+            [peripheral.utils :refer [is-class-name?]]))
 
 (defn- analyze-component-logic
   "Create pair of a seq of fields (as a pair, associated with a map of start/stop logic), as well
