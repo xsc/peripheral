@@ -1,5 +1,6 @@
 (ns peripheral.system
   (:require [com.stuartsierra.component :as component]
+            [peripheral.component :refer [defcomponent]]
             [peripheral.configuration :refer [load-configuration!]]
             [peripheral.system-map :as sys]
             [peripheral.subsystem :as sub]
@@ -54,14 +55,11 @@
          [{:keys [~@fields]}]
          (-> ~(sys/initial-system-map fields)
              ~@system-logic))
-       (defrecord ~id [~@fields]
-         component/Lifecycle
-         (start [this#]
-           (-> this#
-               (sys/initialize-system-meta ~cfg-fn)
-               (start-system-with-meta)))
-         (stop [this#]
-           (stop-system-with-meta this#))
+       (defcomponent ~id [~@fields]
+         :peripheral/start   #(sys/initialize-system-meta % ~cfg-fn)
+         :peripheral/started start-system-with-meta
+         :peripheral/stop    stop-system-with-meta
+
          sub/Subsystem
          (start-subsystem [this# components#]
            (-> this#
