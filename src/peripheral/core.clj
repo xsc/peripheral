@@ -14,6 +14,6 @@
   [peripheral.subsystem
    start-subsystem]
   [peripheral.component
-   defcomponent]
+   defcomponent attach detach running?]
   [com.stuartsierra.component
    start stop])

@@ -1,6 +1,6 @@
 (ns peripheral.component-test
   (:require [midje.sweet :refer :all]
-            [peripheral.component :refer [defcomponent]]
+            [peripheral.component :refer [defcomponent attach running?]]
             [com.stuartsierra.component :refer [start stop]]))
 
 ;; ## Basic Functionality
@@ -15,12 +15,17 @@
             stopped (stop started)]
         (instance? Test t) => truthy
         (keys t) => (contains #{:n :n-inc :n-twice})
+        t =not=> running?
         (:n t) => 0
         (:n-inc t) => nil
         (:n-twice t) => nil
+
+        started => running?
         (:n started) => 0
         (:n-inc started) => 1
         (:n-twice started) => 2
+
+        stopped =not=> running?
         (:n stopped) => 0
         (:n-inc stopped) => 0
         (:n-twice stopped) => nil))
@@ -80,3 +85,49 @@
             @a => [:init :init-a :start :stop :cleanup-a :done]
             (:n stopped) => 0
             (:a stopped) => nil))))
+
+;; ## Attach/Detach
+
+(defcomponent Test [state-atom]
+  :state (do (reset! state-atom :go) :started))
+
+(defcomponent Attach [parent-state state-atom])
+
+(facts "about 'defcomponent' attach and detach."
+       (fact "about dependency map"
+         (let [t (-> (map->Test {:state-atom (atom nil)})
+                     (attach :child (map->Attach {})
+                             {:parent-state :state
+                              :state-atom :state-atom }))
+               started (start t)
+               stopped (stop t)]
+           t =not=> running?
+           (-> t :child) =not=> running?
+
+           (-> t :state) => nil
+           (-> t :state-atom) => truthy
+           (-> t :child) => truthy
+           (-> t :child :parent-state) => nil
+           (-> t :child :state-atom) => nil
+
+           started => running?
+           (-> started :child) => running?
+
+           (-> started :state) => :started
+           @(-> started :state-atom) => :go
+           (-> started :child :parent-state) => :started
+           (-> started :child :state-atom) => truthy
+           @(-> started :child :state-atom) => :go
+
+           stopped =not=> running?
+           (-> stopped :child) =not=> running?
+
+           (-> stopped :child :parent-state) => nil
+           (-> stopped :child :state-atom) => nil))
+       (fact "about dependency vector"
+         (let [t (-> (map->Test {:state-atom (atom nil)})
+                     (attach :child (map->Attach {}) [:state-atom]))
+               started (start t)]
+           (-> started :child :parent-state) => nil
+           (-> started :child :state-atom) => truthy
+           @(-> started :child :state-atom) => :go)))
