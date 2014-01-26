@@ -8,12 +8,9 @@
 
 (import-vars
   [peripheral.system
-   defsystem restart]
-  [peripheral.system-map
-   connect configure]
-  [peripheral.subsystem
-   start-subsystem]
+   defsystem connect subsystem]
   [peripheral.component
-   defcomponent attach detach running?]
+   defcomponent attach detach
+   running? restart]
   [com.stuartsierra.component
    start stop])
