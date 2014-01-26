@@ -172,7 +172,7 @@
    can manipulate the component record directly:
 
      (defcomponent TestComponent [...]
-       :peripheral/init    #(...)      ;; called before fields are initialized
+       :peripheral/start   #(...)      ;; called before fields are initialized
        :peripheral/started #(...)      ;; called after fields are initialized
        :peripheral/stop    #(...)      ;; called before fields are cleaned up
        :peripheral/stopped #(...))     ;; called after fields are cleaned up
