@@ -84,6 +84,7 @@
 ;; ## Helpers
 
 (defmacro with-field-exception
+  "Wrap field initialization/cleanup to produce more expressive exception."
   [field & body]
   `(try
      (do ~@body)
@@ -102,21 +103,39 @@
 
 ;; ## `defcomponent`
 
+(defn- add-field
+  "Add field to analysis map."
+  [result-map field start stop]
+  (update-in result-map [:fields]
+             (comp vec conj)
+             [field {:start start :stop stop}]))
+
+(defn- finalize-analysis
+  [result-map rest-seq]
+  "Process everything that is left and add data to analysis map."
+  (assoc result-map :specifics rest-seq))
+
+(def ^:private namespace-dispatch
+  "Allow for special keywords that are handled by their namespace."
+  {"peripheral" #(assoc-in % [:lifecycle %2] %3)
+   "component"  #(add-field % %2 `(component/start ~%3) `component/stop)})
+
 (defn- analyze-component-logic
   "Create pair of a seq of fields (as a pair, associated with a map of start/stop logic), as well
    as a seq of component specifics."
   [logic-seq]
   (loop [sq logic-seq
-         fields []
-         lifecycle {}]
+         m {}]
     (if (empty? sq)
-      [fields nil lifecycle]
-      (let [[[k start stop] rst] (split-at 3 sq)]
+      (finalize-analysis m sq)
+      (let [[[k a b] rst] (split-at 3 sq)]
         (if (keyword? k)
-          (cond (= (namespace k) "peripheral") (recur (drop 2 sq) fields (assoc lifecycle (-> k name keyword) start))
-                (or (keyword? stop) (is-class-name? stop)) (recur (drop 2 sq) (conj fields [k {:start start}]) lifecycle)
-                :else (recur rst (conj fields [k {:start start :stop stop}]) lifecycle))
-          [fields sq lifecycle])))))
+          (if-let [dispatch (namespace-dispatch (namespace k))]
+            (recur (drop 2 sq) (dispatch m (-> k name keyword) a))
+            (if (or (keyword? b) (is-class-name? b))
+              (recur (drop 2 sq) (add-field m k a nil))
+              (recur rst (add-field m k a b))))
+          (finalize-analysis m sq))))))
 
 (defn- create-init-form
   "Create component initialization form that sequentially sets the values of the component fields."
@@ -183,7 +202,7 @@
 
    Note that these take a function, not a form, and only allow for one value!"
   [id dependencies & component-logic]
-  (let [[fields specifics lifecycle] (analyze-component-logic component-logic)
+  (let [{:keys [fields specifics lifecycle]} (analyze-component-logic component-logic)
         field-syms (map (comp symbol name first) fields)
         record-fields (set (concat field-syms dependencies))
         this (gensym "this")]
