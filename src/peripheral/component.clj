@@ -217,3 +217,12 @@
            ~(create-stop-form fields lifecycle this)
            ~this))
        ~@specifics)))
+
+;; ## Restart
+
+(defn restart
+  "Restart the given component by calling `stop` and `start`."
+  [component]
+  (-> component
+      (component/stop)
+      (component/start)))
