@@ -209,7 +209,11 @@
     `(defrecord ~id [~@record-fields]
        component/Lifecycle
        (start [~this]
-         ~(create-start-form fields lifecycle field-syms this))
+         (if (running? ~this)
+           ~this
+           ~(create-start-form fields lifecycle field-syms this)))
        (stop [~this]
-         ~(create-stop-form fields lifecycle this))
+         (if (running? ~this)
+           ~(create-stop-form fields lifecycle this)
+           ~this))
        ~@specifics)))
