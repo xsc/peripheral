@@ -4,8 +4,6 @@
             [com.stuartsierra.component :as component]
             [potemkin :refer [import-vars]]))
 
-;; ## API Facade
-
 (import-vars
   [peripheral.system
    defsystem connect subsystem]
