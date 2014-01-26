@@ -81,6 +81,25 @@
       (dissoc k)
       (remove-attach-key k)))
 
+;; ## Helpers
+
+(defmacro with-field-exception
+  [field & body]
+  `(try
+     (do ~@body)
+     (catch Throwable ex#
+       (let [msg# (format ~(format "could not update field '%s' (%%s)" field) (.getMessage ex#))]
+         (throw (Exception. msg# ex#))))))
+
+(defn call-on-component
+  "Call the given function on the given component iff `f` really is a function. Will return
+   the unaltered component if `f` returns nil."
+  [component f]
+  (or
+    (when (fn? f)
+      (f component))
+    component))
+
 ;; ## `defcomponent`
 
 (defn- analyze-component-logic
@@ -99,60 +118,45 @@
                 :else (recur rst (conj fields [k {:start start :stop stop}]) lifecycle))
           [fields sq lifecycle])))))
 
+(defn- create-init-form
+  "Create component initialization form that sequentially sets the values of the component fields."
+  [fields field-syms this]
+  (let [fn-forms (map-indexed
+                   (fn [i [field {:keys [start]}]]
+                     `(fn [{:keys [~@(take i field-syms)] :as ~this}]
+                        (with-field-exception ~field
+                          (assoc ~this ~field ~start))))
+                   fields)]
+    `(reduce #(%2 %1) ~this [~@fn-forms])))
+
 (defn- create-start-form
   "Create component startup form initializing the fields in order of definition."
   [fields {:keys [start started]} field-syms this]
-  (let [field-init-form `(reduce
-                           #(%2 %1)
-                           ~this
-                           [~@(map-indexed
-                                (fn [i [field {:keys [start]}]]
-                                  `(fn [{:keys [~@(take i field-syms)] :as this#}]
-                                     (try
-                                       (assoc this# ~field ~start)
-                                       (catch Throwable ex#
-                                         (throw
-                                           (Exception.
-                                             (str ~(str "Could not initialize field: " field "(") (.getMessage ex#) ")") ex#))))))
-                                fields)])
-        component-init-form (if start
-                              `(let [~this (or (~start ~this) ~this)]
-                                 ~field-init-form)
-                              field-init-form)
-        component-start-form (if start
-                               `(let [c# ~component-init-form]
-                                  (or (~started c#) c#))
-                               component-init-form)]
-    `(-> ~component-start-form
+  `(let [~this (call-on-component ~this ~start)]
+     (-> ~(create-init-form fields field-syms this)
+         (call-on-component ~started)
          (start-attached-components)
          (set-started))))
 
+(defn- create-cleanup-form
+  "Create component cleanup form that sequentially resets the values of the component fields to
+   either nil or the result of a supplied cleanup function."
+  [fields this]
+  `(-> ~this
+       ~@(for [[field {:keys [stop]}] (reverse fields)]
+           (if stop
+             `(update-in [~field] #(with-field-exception ~field (~stop %)))
+             `(assoc ~field nil)))))
+
 (defn- create-stop-form
-  [fields {:keys [stop stopped]} this]
   "Take a map of fields with start/stop logic and create the map to be used for
    cleanup."
-  (let [stop-map (->> (for [[field m] fields]
-                        [field (when-let [f (:stop m)]
-                                 `(try
-                                    (~f (get ~this ~field))
-                                    (catch Throwable ex#
-                                      (throw
-                                        (Exception.
-                                          (str ~(str "Could not cleanup field: " field " (") (.getMessage ex#) ")") ex#)))))])
-                      (into {}))
-        component-merge-form `(merge ~this ~stop-map)
-        component-stop-form (if stop
-                              `(let [~this (or (~stop ~this) ~this)]
-                                 ~component-merge-form)
-                              component-merge-form)
-        component-done-form (if stopped
-                              `(let [c# ~component-stop-form]
-                                 (or (~stopped c#) c#))
-                              component-stop-form)]
-    `(let [~this (-> ~this
-                     (set-stopped)
-                     (stop-attached-components))]
-       ~component-done-form)))
+  [fields {:keys [stop stopped]} this]
+  `(let [~this (call-on-component ~this ~stop)]
+     (-> ~(create-cleanup-form fields this)
+         (call-on-component ~stopped)
+         (stop-attached-components)
+         (set-stopped))))
 
 (defmacro defcomponent
   "Create new component type from a vector of `dependencies` (the components/fields that should
