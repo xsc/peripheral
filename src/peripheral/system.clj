@@ -136,7 +136,9 @@
   "Stop all currently active components."
   [system]
   (if-let [components (-> system meta ::active seq)]
-    (component/stop-system system components)
+    (-> system
+        (component/stop-system components)
+        (component/update-system components identity))
     system))
 
 ;; ### Macro
