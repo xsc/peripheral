@@ -132,13 +132,20 @@
         (component/system-using component-dependencies)
         (component/start-system components))))
 
+(defn- clean-components
+  [system components]
+  (component/update-system-reverse
+    system
+    (filter #(get system %) components)
+    identity))
+
 (defn stop-components
   "Stop all currently active components."
   [system]
   (if-let [components (-> system meta ::active seq)]
     (-> system
         (component/stop-system components)
-        (component/update-system components identity))
+        (clean-components components))
     system))
 
 ;; ### Macro
