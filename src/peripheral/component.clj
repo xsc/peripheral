@@ -213,8 +213,9 @@
            ~this
            ~(create-start-form fields lifecycle field-syms this)))
        (stop [~this]
-         (if (running? ~this)
-           ~(create-stop-form fields lifecycle this)
+         (or
+           (when (running? ~this)
+             ~(create-stop-form fields lifecycle this))
            ~this))
        ~@specifics)))
 
