@@ -75,7 +75,14 @@
           config => :config-data
           name => :sys
           (map :started [g a]) => (has every? falsey)
-          (-> a :g :started) => falsey)))
+          (-> a :g :started) => falsey
+          (let [{:keys [g a config name] :as restarted} (component/start stopped)]
+            config => :config-data
+            name => :sys
+            (map :started [g a]) => (has every? truthy)
+            (map :config [g a]) => (has every? #{:config-data})
+            (:g a) => g
+            (:system a) => :sys))))
 
 (tabular
   (fact "about starting/stopping subsystems"
