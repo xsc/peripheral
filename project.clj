@@ -1,4 +1,4 @@
-(defproject peripheral "0.2.2"
+(defproject peripheral "0.2.3-SNAPSHOT"
   :description "System Creation for `stuartsierra/component`."
   :url "https://github.com/xsc/peripheral"
   :license {:name "Eclipse Public License"
