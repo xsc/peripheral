@@ -11,7 +11,7 @@ Stuart Sierra's [component](https://github.com/stuartsierra/component) library.
 __Leiningen (via [Clojars](https://clojars.org/peripheral))__
 
 ```clojure
-[peripheral "0.2.2"]
+[peripheral "0.3.0"]
 ```
 
 ### `defcomponent`
@@ -36,8 +36,9 @@ stateful fields separately, startup and shutdown functions can be generated auto
 @(:data my-consumer)  ;; => []
 ```
 
-Component data flows top-to-bottom, meaning that fields that come later in the list can rely on those preceding them (and refer
-to them by their symbol).
+Component data flows top-to-bottom, meaning that fields that come later in the list can rely on those
+preceding them (and refer to them by their symbol). Note that if an exception occurs during initialization,
+already initialized fields will be cleaned up.
 
 ### Component Startup/Shutdown
 
