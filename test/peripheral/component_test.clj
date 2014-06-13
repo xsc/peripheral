@@ -131,3 +131,27 @@
            (-> started :child :parent-state) => nil
            (-> started :child :state-atom) => truthy
            @(-> started :child :state-atom) => :go)))
+
+;; ## Cleanup
+
+(defcomponent Test [state-atom]
+  :state0
+  (swap! state-atom (fnil conj []) :start0)
+  (fn [_] (swap! state-atom (fnil conj []) :stop0) _)
+  :state1
+  (swap! state-atom (fnil conj []) :start1)
+  (fn [_] (swap! state-atom (fnil conj []) :stop1) _)
+  :state2
+  (swap! state-atom (fnil conj []) :start2)
+  (fn [_] (swap! state-atom (fnil conj []) :stop2) _)
+  :error (do
+           (swap! state-atom (fnil conj []) :before-error)
+           (throw (Exception.))))
+
+(fact "about 'defcomponent' initialization errors"
+      (let [s (atom [])
+            t (map->Test {:state-atom s})]
+        (start t) => (throws Exception)
+        (take 3 @s) => [:start0 :start1 :start2]
+        (nth @s 3) => :before-error
+        (drop 4 @s) => [:stop2 :stop1 :stop0]))

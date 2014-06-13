@@ -137,14 +137,39 @@
               (recur rst (add-field m k a b))))
           (finalize-analysis m sq))))))
 
+(defn- create-silent-cleanup-forms
+  [fields cleanup-syms]
+  (for [sym (reverse cleanup-syms)
+        :let [field (keyword (name sym))
+              stop (get-in fields [field :stop])]
+        :when stop]
+    `(try
+       (~stop ~sym)
+       (catch Throwable ~'_))))
+
+(defn- with-field-cleanup
+  [fields cleanup-syms & body]
+  (if (seq cleanup-syms)
+    `(try
+       (do ~@body)
+       (catch Throwable ex#
+         ~@(create-silent-cleanup-forms
+             (into {} fields)
+             cleanup-syms)
+         (throw ex#)))
+    `(do ~@body)))
+
 (defn- create-init-form
-  "Create component initialization form that sequentially sets the values of the component fields."
+  "Create component initialization form that sequentially sets the values of the component fields.
+   If an exception occurs, all previously initialized fields are cleaned up."
   [fields field-syms this]
   (let [fn-forms (map-indexed
                    (fn [i [field {:keys [start]}]]
-                     `(fn [{:keys [~@(take i field-syms)] :as ~this}]
-                        (with-field-exception ~field
-                          (assoc ~this ~field ~start))))
+                     (let [ready (take i field-syms)]
+                       `(fn [{:keys [~@ready] :as ~this}]
+                          (with-field-exception ~field
+                            ~(with-field-cleanup fields ready
+                               `(assoc ~this ~field ~start))))))
                    fields)]
     `(reduce #(%2 %1) ~this [~@fn-forms])))
 
