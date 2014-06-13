@@ -9,5 +9,5 @@
   :profiles {:dev {:dependencies [[midje "1.6.0" :exclusions [joda-time]]
                                   [joda-time "2.3"]]
                    :plugins [[lein-midje "3.1.3"]]}}
-  :aliases {"test-ancient" "midje"}
+  :aliases {"test" "midje"}
   :pedantic? :abort)
