@@ -135,17 +135,12 @@
 ;; ## Cleanup
 
 (defcomponent Test [state-atom]
-  :state0
-  (swap! state-atom (fnil conj []) :start0)
-  (fn [_] (swap! state-atom (fnil conj []) :stop0) _)
-  :state1
-  (swap! state-atom (fnil conj []) :start1)
-  (fn [_] (swap! state-atom (fnil conj []) :stop1) _)
-  :state2
-  (swap! state-atom (fnil conj []) :start2)
-  (fn [_] (swap! state-atom (fnil conj []) :stop2) _)
+  :f (fn [_ k] (swap! state-atom (fnil conj []) k) _)
+  :state0 (f nil :start0) #(f % :stop0)
+  :state1 (f nil :start1) #(f % :stop1)
+  :state2 (f nil :start2) #(f % :stop2)
   :error (do
-           (swap! state-atom (fnil conj []) :before-error)
+           (f nil :before-error)
            (throw (Exception.))))
 
 (fact "about 'defcomponent' initialization errors"
