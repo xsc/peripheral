@@ -95,10 +95,18 @@
 (defn call-on-component
   "Call the given function on the given component iff `f` really is a function. Will return
    the unaltered component if `f` returns nil."
-  [component f]
+  [component k f]
   (or
     (when (fn? f)
-      (f component))
+      (when-let [component' (f component)]
+        (if (= (class component') (class component))
+          component'
+          (throw
+            (Exception.
+              (format "component class changed from %s to %s in %s handler."
+                      (class component)
+                      (class component')
+                      k))))))
     component))
 
 ;; ## `defcomponent`
@@ -176,9 +184,9 @@
 (defn- create-start-form
   "Create component startup form initializing the fields in order of definition."
   [fields {:keys [start started]} field-syms this]
-  `(let [~this (call-on-component ~this ~start)]
+  `(let [~this (call-on-component ~this :start ~start)]
      (-> ~(create-init-form fields field-syms this)
-         (call-on-component ~started)
+         (call-on-component :started ~started)
          (start-attached-components)
          (set-started))))
 
@@ -196,9 +204,9 @@
   "Take a map of fields with start/stop logic and create the map to be used for
    cleanup."
   [fields {:keys [stop stopped]} this]
-  `(let [~this (call-on-component ~this ~stop)]
+  `(let [~this (call-on-component ~this :stop ~stop)]
      (-> ~(create-cleanup-form fields this)
-         (call-on-component ~stopped)
+         (call-on-component :stopped ~stopped)
          (stop-attached-components)
          (set-stopped))))
 

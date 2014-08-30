@@ -150,3 +150,26 @@
         (take 3 @s) => [:start0 :start1 :start2]
         (nth @s 3) => :before-error
         (drop 4 @s) => [:stop2 :stop1 :stop0]))
+
+;; ## Class Check
+
+(defcomponent TestStart []
+  :peripheral/start (constantly {}))
+
+(defcomponent TestStarted []
+  :peripheral/started (constantly {}))
+
+(defcomponent TestStop []
+  :peripheral/stop (constantly {}))
+
+(defcomponent TestStopped []
+  :peripheral/stopped (constantly {}))
+
+(tabular
+  (fact "about 'defcomponent' class change detection in startup and shutdown."
+        (?f (?constructor {})) => (throws Exception #"component class changed"))
+  ?constructor           ?f
+  map->TestStart         start
+  map->TestStarted       start
+  map->TestStop          (comp stop start)
+  map->TestStopped       (comp stop start))
