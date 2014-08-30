@@ -10,9 +10,7 @@ Stuart Sierra's [component](https://github.com/stuartsierra/component) library.
 
 __Leiningen (via [Clojars](https://clojars.org/peripheral))__
 
-```clojure
-[peripheral "0.3.0"]
-```
+[![Clojars Project](http://clojars.org/peripheral/latest-version.svg)](http://clojars.org/peripheral)
 
 ### `defcomponent`
 
