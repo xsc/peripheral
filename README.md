@@ -50,7 +50,35 @@ can be done by using the following special keywords in the body of `defcomponent
 - `:peripheral/stop`: called at the beginning of the `stop` operation (before any fields are cleaned up);
 - `:peripheral/stopped`: called at the end of the `stop` operation (after all fields are cleaned up).
 
-Values to these keys have to be functions taking a single parameter: the component value.
+Values for these keys have to be functions taking a single parameter: the component value. Alternatively,
+if you want to run a command without the need to modify the component, you can use the `on` prefix, directly
+supplying the form to run.
+
+```clojure
+(defcomponent Tester []
+  :tag      "[test]"
+  :started? false
+  :state    (atom nil)
+
+  :on/start   (debug tag "starting up ...")
+  :on/started (debug tag "running ...")
+  :on/stop    (debug tag "shutting down ...")
+  :on/stopped (debug tag "shut down.")
+
+  :peripheral/started #(assoc % :started? true))
+```
+
+As you can see, the lifecycle handlers have direct (= via symbol) access to the field values at the time
+they are run:
+
+```clojure
+(peripheral/start (map->Tester {}))
+;; nil starting up ...
+;; [test] running ...
+;; => #user.Tester{:tag "[test]", :state #<Atom@4889ffe6: nil>, :started? true}
+```
+
+(The message `nil starting up` demonstrates that `:tag` is not initialized at the time `:on/start` is triggered.)
 
 ### Components + Protocols
 
