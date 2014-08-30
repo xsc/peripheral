@@ -207,12 +207,19 @@
                    fields)]
     `(reduce #(%2 %1) ~this [~@fn-forms])))
 
+(defn- create-call-form
+  [this field-syms k fn-form]
+  (->> (when fn-form
+         `(fn [{:keys [~@field-syms] :as this#}]
+            (~fn-form this#)))
+       (list `call-on-component this k)))
+
 (defn- create-start-form
   "Create component startup form initializing the fields in order of definition."
   [fields {:keys [start started]} field-syms this]
-  `(let [~this (call-on-component ~this :start ~start)]
-     (-> ~(create-init-form fields field-syms this)
-         (call-on-component :started ~started)
+  `(let [~this ~(create-call-form this field-syms :start start)]
+     (-> ~(-> (create-init-form fields field-syms this)
+              (create-call-form field-syms :started started))
          (start-attached-components)
          (set-started))))
 
@@ -229,10 +236,10 @@
 (defn- create-stop-form
   "Take a map of fields with start/stop logic and create the map to be used for
    cleanup."
-  [fields {:keys [stop stopped]} this]
-  `(let [~this (call-on-component ~this :stop ~stop)]
-     (-> ~(create-cleanup-form fields this)
-         (call-on-component :stopped ~stopped)
+  [fields {:keys [stop stopped]} field-syms this]
+  `(let [~this ~(create-call-form this field-syms :stop stop)]
+     (-> ~(-> (create-cleanup-form fields this)
+              (create-call-form field-syms :stopped stopped))
          (stop-attached-components)
          (set-stopped))))
 
@@ -274,7 +281,7 @@
        (stop [~this]
          (or
            (when (running? ~this)
-             ~(create-stop-form fields lifecycle this))
+             ~(create-stop-form fields lifecycle field-syms this))
            ~this))
        ~@specifics)))
 

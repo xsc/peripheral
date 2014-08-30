@@ -143,6 +143,28 @@
             (:n stopped) => 0
             (:a stopped) => nil))))
 
+(defcomponent TestLifecycleFields [state-atom n]
+  :a 1
+  :on/start (swap! state-atom conj [:init n a])
+  :on/started (swap! state-atom conj [:start n a])
+  :on/stop (swap! state-atom conj [:stop n a])
+  :on/stopped (swap! state-atom conj [:done n a]))
+
+(fact "about 'defcomponent' field access in lifecycle functions."
+      (let [a (atom [])
+            t (map->TestLifecycleFields {:state-atom a :n 0})]
+        @a => empty?
+        (:n t) => 0
+        (:a t) => nil
+        (let [started (start t)]
+          @a => [[:init 0 nil] [:start 0 1]]
+          (:n started) => 0
+          (:a started) => 1
+          (let [stopped (stop started)]
+            (drop 2 @a) => [[:stop 0 1] [:done 0 nil]]
+            (:n stopped) => 0
+            (:a stopped) => nil))))
+
 ;; ## Attach/Detach
 
 (defcomponent Test [state-atom]
