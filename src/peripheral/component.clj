@@ -123,9 +123,35 @@
   "Process everything that is left and add data to analysis map."
   (assoc result-map :specifics rest-seq))
 
+(defn- add-passive-lifecycle
+  [m k form]
+  (update-in m [:lifecycle k]
+             (fn [f]
+               (if f
+                 `(let [f1# ~f]
+                    (fn [this#]
+                      (let [this# (f1# this#)]
+                        ~form
+                        this#)))
+                 `(fn [this#]
+                    ~form
+                    this#)))))
+
+(defn- add-active-lifecycle
+  [m k fn-form]
+  (update-in m [:lifecycle k]
+             (fn [f]
+               (if f
+                 `(let [f1# ~f
+                        f2# ~fn-form]
+                    (fn [this#]
+                      (f2# (or (f1# this#) this#))))
+                 fn-form))))
+
 (def ^:private namespace-dispatch
   "Allow for special keywords that are handled by their namespace."
-  {"peripheral" #(assoc-in % [:lifecycle %2] %3)
+  {"peripheral" add-active-lifecycle
+   "on"         add-passive-lifecycle
    "component"  #(add-field % %2 `(component/start ~%3) `component/stop)})
 
 (defn- analyze-component-logic

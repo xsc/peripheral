@@ -62,7 +62,7 @@
 
 ;; ## Lifecycle
 
-(defcomponent Test [state-atom n]
+(defcomponent TestActiveLifecycle [state-atom n]
   :peripheral/start (fn [_] (swap! state-atom conj :init) _)
   :peripheral/started (fn [_] (swap! state-atom conj :start) _)
   :peripheral/stop (fn [_] (swap! state-atom conj :stop) _)
@@ -71,9 +71,9 @@
   :a (do (swap! state-atom conj :init-a) (inc n))
      #(do % (swap! state-atom conj :cleanup-a) nil))
 
-(fact "about 'defcomponent' lifecycle functions"
+(fact "about 'defcomponent' active lifecycle functions"
       (let [a (atom [])
-            t (map->Test {:state-atom a :n 0})]
+            t (map->TestActiveLifecycle {:state-atom a :n 0})]
         @a => empty?
         (:n t) => 0
         (:a t) => nil
@@ -83,6 +83,63 @@
           (:a started) => 1
           (let [stopped (stop started)]
             @a => [:init :init-a :start :stop :cleanup-a :done]
+            (:n stopped) => 0
+            (:a stopped) => nil))))
+
+(defcomponent TestPassiveLifecycle [state-atom n]
+  :on/start (swap! state-atom conj :init)
+  :on/started (swap! state-atom conj :start)
+  :on/stop (swap! state-atom conj :stop)
+  :on/stopped (swap! state-atom conj :done)
+
+  :a (do (swap! state-atom conj :init-a) (inc n))
+     #(do % (swap! state-atom conj :cleanup-a) nil))
+
+(fact "about 'defcomponent' passive lifecycle functions"
+      (let [a (atom [])
+            t (map->TestPassiveLifecycle {:state-atom a :n 0})]
+        @a => empty?
+        (:n t) => 0
+        (:a t) => nil
+        (let [started (start t)]
+          @a => [:init :init-a :start]
+          (:n started) => 0
+          (:a started) => 1
+          (let [stopped (stop started)]
+            @a => [:init :init-a :start :stop :cleanup-a :done]
+            (:n stopped) => 0
+            (:a stopped) => nil))))
+
+(defcomponent TestActivePassiveLifecycle [state-atom n]
+  :on/start (swap! state-atom conj :init)
+  :on/started (swap! state-atom conj :start)
+  :on/stop (swap! state-atom conj :stop)
+  :on/stopped (swap! state-atom conj :done)
+
+  :peripheral/start (fn [_] (swap! state-atom conj :init-active) _)
+  :peripheral/started (fn [_] (swap! state-atom conj :start-active) _)
+  :peripheral/stop (fn [_] (swap! state-atom conj :stop-active) _)
+  :peripheral/stopped (fn [_] (swap! state-atom conj :done-active) _)
+
+  :on/stopped (swap! state-atom conj :done-final)
+
+  :a (do (swap! state-atom conj :init-a) (inc n))
+     #(do % (swap! state-atom conj :cleanup-a) nil))
+
+(fact "about 'defcomponent' active/passive lifecycle function mixing"
+      (let [a (atom [])
+            t (map->TestActivePassiveLifecycle {:state-atom a :n 0})]
+        @a => empty?
+        (:n t) => 0
+        (:a t) => nil
+        (let [started (start t)]
+          @a => [:init :init-active :init-a :start :start-active]
+          (:n started) => 0
+          (:a started) => 1
+          (let [stopped (stop started)]
+            @a => [:init :init-active :init-a :start :start-active
+                   :stop :stop-active :cleanup-a :done :done-active
+                   :done-final]
             (:n stopped) => 0
             (:a stopped) => nil))))
 
