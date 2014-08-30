@@ -50,6 +50,8 @@ can be done by using the following special keywords in the body of `defcomponent
 - `:peripheral/stop`: called at the beginning of the `stop` operation (before any fields are cleaned up);
 - `:peripheral/stopped`: called at the end of the `stop` operation (after all fields are cleaned up).
 
+Values to these keys have to be functions taking a single parameter: the component value.
+
 ### Components + Protocols
 
 `defsystem` and `defcomponent` allow for a series of `defrecord`-like protocol implementations following
