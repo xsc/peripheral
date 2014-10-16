@@ -97,6 +97,28 @@ their description, e.g.:
 @my-component         ;; => 123
 ```
 
+### This
+
+You can access the current state of the component record by binding it to a symbol using `:this/as`:
+
+```clojure
+(defn print-name
+  [{:keys [first-name last-name]}]
+  (printf "%s, %s%n" last-name first-name))
+
+(defcomponent NameComponent [first-name last-name]
+  :this/as    *this*
+  :reversed   (apply str (reverse (:first-name *this*)))
+  :on/started (print-name *this*))
+
+(peripheral/start
+  (map->NameComponent
+    {:first-name "Some"
+     :last-name "One"}))
+;; One, Some
+;; => #user.NameComponent{:reversed "emoS", :first-name "Some", :last-name "One"}
+```
+
 ### Attach/Detach (ad-hoc Coupling)
 
 Sometimes you want to reuse parts of a component. For example, there might be an event bus that is created by a component
