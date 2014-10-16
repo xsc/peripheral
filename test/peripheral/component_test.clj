@@ -252,3 +252,19 @@
   map->TestStarted       start
   map->TestStop          (comp stop start)
   map->TestStopped       (comp stop start))
+
+;; ## This
+
+(defcomponent ThisTest [x]
+  :this/as *this*
+  :y (+ (:x *this*) 10)
+  :z (- (:y *this*) 5)
+  :v *this*)
+
+(fact "about binding the whole component to a symbol."
+      (let [t (map->ThisTest {:x 1})
+            started (start t)]
+        (:x started) => 1
+        (:y started) => 11
+        (:z started) => 6
+        (class (:v started)) => ThisTest))

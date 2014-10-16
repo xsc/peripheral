@@ -118,6 +118,13 @@
              (comp vec conj)
              [field {:start start :stop stop}]))
 
+(defn- add-this
+  [result-map k sym]
+  (assert (= k :as) "only :this/as is allowed to bind component.")
+  (assert (not (:this result-map)) "duplicate ':this/as'  statement.")
+  (assert (symbol? sym) (format ":this/as needs symbol; given: %s" (pr-str sym)))
+  (assoc result-map :this sym))
+
 (defn- finalize-analysis
   [result-map rest-seq]
   "Process everything that is left and add data to analysis map."
@@ -152,6 +159,7 @@
   "Allow for special keywords that are handled by their namespace."
   {"peripheral" add-active-lifecycle
    "on"         add-passive-lifecycle
+   "this"       add-this
    "component"  #(add-field % %2 `(component/start ~%3) `component/stop)})
 
 (defn- analyze-component-logic
@@ -266,12 +274,27 @@
        :peripheral/stop    #(...)      ;; called before fields are cleaned up
        :peripheral/stopped #(...))     ;; called after fields are cleaned up
 
-   Note that these take a function, not a form, and only allow for one value!"
+   Note that these take a function, not a form, and only allow for one value!
+
+   If you don't need to alter the component record, the 'on' prefix can be used to directly
+   execute forms:
+
+     (defcomponent TestComponent [...]
+       :on/start (println \"starting\"))
+
+   Finally, if you need access to the whole component, you can bind it to a symbol using
+   ':this/as':
+
+     (defcomponent TestComponent [x]
+       :this/as *this*
+       :y (+ (:x *this*) 10)
+       :z (- (:y *this*) 5))
+  "
   [id dependencies & component-logic]
-  (let [{:keys [fields specifics lifecycle]} (analyze-component-logic component-logic)
+  (let [{:keys [this fields specifics lifecycle]} (analyze-component-logic component-logic)
         field-syms (map (comp symbol name first) fields)
         record-fields (set (concat field-syms dependencies))
-        this (gensym "this")]
+        this (or this (gensym "this"))]
     `(defrecord ~id [~@record-fields]
        component/Lifecycle
        (start [~this]
