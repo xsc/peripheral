@@ -12,90 +12,179 @@ __Leiningen (via [Clojars](https://clojars.org/peripheral))__
 
 [![Clojars Project](http://clojars.org/peripheral/latest-version.svg)](http://clojars.org/peripheral)
 
-### `defcomponent`
-
-The `defcomponent` macro can provide a concise way of defining components. By providing
-dependencies (i.e. components or pieces of data that have to be initialized in advance) and
-stateful fields separately, startup and shutdown functions can be generated automatically.
+__REPL__
 
 ```clojure
-(require '[peripheral.core :as peripheral :refer [defcomponent]])
-
-(defcomponent Consumer [input-queue]
-  :data   (atom [])
-  :thread (doto (Thread. #(consumer-loop input-queue data))
-            (.start))
-          #(.interrupt ^Thread %))
-
-(def my-consumer (map->Consumer {:input-queue ...}))
-(alter-var-root #'my-consumer peripheral/start)
-
-(:thread my-consumer) ;; => #<Thread ...>
-@(:data my-consumer)  ;; => []
+(require '[peripheral.core :as p])
 ```
 
-Component data flows top-to-bottom, meaning that fields that come later in the list can rely on those
-preceding them (and refer to them by their symbol). Note that if an exception occurs during initialization,
-already initialized fields will be cleaned up.
+## Components
 
-### Component Startup/Shutdown
+### Creating a Component
 
-Sometimes it is necessary to modify a component as a whole to achieve a certain lifecycle. This
-can be done by using the following special keywords in the body of `defcomponent`:
-
-- `:peripheral/start`: called at the beginning of the `start` operation (before any fields are initialized);
-- `:peripheral/started`: called at the end of the `start` operation (after all fields are initialized);
-- `:peripheral/stop`: called at the beginning of the `stop` operation (before any fields are cleaned up);
-- `:peripheral/stopped`: called at the end of the `stop` operation (after all fields are cleaned up).
-
-Values for these keys have to be functions taking a single parameter: the component value. Alternatively,
-if you want to run a command without the need to modify the component, you can use the `on` prefix, directly
-supplying the form to run.
+Components can be created using `defcomponent`, a macro operating like `defrecord` but allowing
+for a map-like declaration of internal state. Each field is associated with an expression to be
+run at startup and an optional _function_ to be called at shutdown:
 
 ```clojure
-(defcomponent Tester []
-  :tag      "[test]"
-  :started? false
-  :state    (atom nil)
-
-  :on/start   (debug tag "starting up ...")
-  :on/started (debug tag "running ...")
-  :on/stop    (debug tag "shutting down ...")
-  :on/stopped (debug tag "shut down.")
-
-  :peripheral/started #(assoc % :started? true))
+(p/defcomponent InternalQueue [max-value]            ;; (1)
+  :queue-data (atom [])                              ;; (2)
+  :fill-thread
+  (future
+    (while true
+      (Thread/sleep 100)
+      (swap! queue-data conj (rand-int max-value)))) ;; (3)
+  #(future-cancel %))                                ;; (4)
 ```
 
-As you can see, the lifecycle handlers have direct (= via symbol) access to the field values at the time
-they are run:
+You can see multiple things here:
+
+- dependencies are given in the record field declaration (1),
+- stateful fields are declared using keywords and an initialization value (2),
+- dependencies and internal fields can be accessed using their symbols (3),
+- cleanup is done by supplying a single-parameter function that takes the field's value (4).
+
+Note that component data flows top-to-bottom, so while `:poll-thread`'s initialization has access
+to the already initialized value of `:queue-data`, the reverse wouldn't hold.
+
+You can start/stop a component using `peripheral.core/start` and `peripheral.core/stop` which are
+just calls to `com.stuartsierra.component`'s startup/shutdown functions:
 
 ```clojure
-(peripheral/start (map->Tester {}))
-;; nil starting up ...
-;; [test] running ...
-;; => #user.Tester{:tag "[test]", :state #<Atom@4889ffe6: nil>, :started? true}
+(def component (map->InternalQueue {:max-value 10}))
+;; => #user.InternalQueue{:max-value 10, :fill-thread nil, :queue-data nil}
+
+(alter-var-root #'component p/start)
+;; => #user.InternalQueue{:max-value 10,
+;;                        :fill-thread #<...>,
+;;                        :queue-data #<Atom@51cdf94: []>}
+
+(Thread/sleep 500)
+component
+;; => #user.InternalQueue{:max-value 10,
+;;                        :fill-thread #<...>,
+;;                        :queue-data #<Atom@51cdf94: [6 0 3 5 4 3]>}
+
+(alter-var-root #'component p/stop)
+;; => #user.InternalQueue{:max-value 10, :fill-thread nil, :queue-data nil}
 ```
 
-(The message `nil starting up` demonstrates that `:tag` is not initialized at the time `:on/start` is triggered.)
+Before startup, both stateful fields are `nil`, afterwards they are initialized with whatever value
+was desired, before being cleaned up again (or replaced with the values of the cleanup functions).
 
-### Components + Protocols
+### Protocol Implementation
 
 `defsystem` and `defcomponent` allow for a series of `defrecord`-like protocol implementations following
 their description, e.g.:
 
 ```clojure
-(defcomponent DerefComponent [initial-value]
+(p/defcomponent DerefComponent [initial-value]
   :data (atom initial-value)
 
   clojure.lang.IDeref
   (deref [_] @data))
 
-(def my-component (map->DerefComponent {:initial-value 123}))
-(alter-var-root #'my-component peripheral/start)
+(def component (map->DerefComponent {:initial-value 123}))
+(alter-var-root #'component p/start)
 
-@(:data my-component) ;; => 123
-@my-component         ;; => 123
+@(:data component) ;; => 123
+@component         ;; => 123
 ```
+
+### Subcomponents
+
+Sometimes you want to start a component within the context of another one (and a system is to heavy-weight for
+your specific use case). By prefixing the field name with `:component/`, peripheral will automatically call
+start and stop functions on the given value:
+
+```clojure
+(p/defcomponent Parent [data]
+  :component/child1 (map->Child (assoc data :name "child-1"))
+  :component/child2 (map->Child (assoc data :name "child-2")))
+```
+
+This expands to:
+
+```clojure
+(p/defcomponent Parent [data]
+  :component/child1
+  (p/start (map->Child (assoc data :name "child-1")))
+  #(p/stop %)
+  :component/child2
+  (p/start (map->Child (assoc data :name "child-2")))
+  #(p/stop %))
+```
+
+### Lifecycle
+
+#### Active Lifecycle
+
+If you want to modify a component as a whole, you can use the prefix `:peripheral/` with one of the
+following keys to run a single-parameter function on the current state of the component:
+
+- `start`: called before any fields are initialized,
+- `started`: called after all fields have been initialized,
+- `stop`: called before any fields are cleaned up,
+- `stopped`: called after all fields have been cleaned up.
+
+You could use these, for example, to trigger a post-initialization action and store the result:
+
+```clojure
+(p/defcomponent ActiveLifecycle []
+  :run?    (promise) #(deliver % false)
+  :results (initialize-results!)
+  :runner  (future (when @run? (do-it!)))
+
+  :peripheral/started
+  (fn [this]
+    (deliver run? true)
+    (update-in this [:results] @runner)))
+```
+
+As you can see, the function has direct access to the fields using their symbols (but they will be
+uninitialized or cleaned up in `:start` and `:stopped`).
+
+Note that most of the time, you don't need this kind of logic since you can achieve the majority
+of goals by adjusting initialization order or using a passive lifecycle handler (see below). Also,
+since you can modify the component in any way you want you have to be extra careful to not mess up
+the automatic cleanup mechanisms.
+
+#### Passive Lifecycle
+
+By using the prefix `:on/` you can run a single form at specific points during initialization and
+cleanup (see the above section for values):
+
+```clojure
+(p/defcomponent PassiveLifecycle []
+  :on/start   (debug "starting up ...")
+  :on/stopped (debug "shut down.))
+```
+
+#### Intermittent Steps
+
+There is no special syntax for running a piece of code _in-between_ the initialization of two fields
+but there are some strategies one could employ. E.g., you could add the logic to the initialization of
+a subsequent field:
+
+```clojure
+(p/defcomponent Steps []
+  :x 0
+  :y (do
+      (prn x)
+      (+ x 10)))
+```
+
+Alternatively, you can create a dummy fields and "initialize" it using the piece of code you want to run:
+
+```clojure
+(p/defcomponent Steps []
+  :x 0
+  :_ (prn x)
+  :y (+ x 10))
+```
+
+If you run into this situation a lot, it might be an indicator that you should split the respective
+component into smaller ones.
 
 ### This
 
@@ -106,12 +195,12 @@ You can access the current state of the component record by binding it to a symb
   [{:keys [first-name last-name]}]
   (printf "%s, %s%n" last-name first-name))
 
-(defcomponent NameComponent [first-name last-name]
+(p/defcomponent NameComponent [first-name last-name]
   :this/as    *this*
   :reversed   (apply str (reverse (:first-name *this*)))
   :on/started (print-name *this*))
 
-(peripheral/start
+(p/start
   (map->NameComponent
     {:first-name "Some"
      :last-name "One"}))
@@ -131,14 +220,14 @@ injection and starts the two in the right order but that is more tedious than ne
 described above: the attached component gets started once the parent component is ready with dependencies already injected:
 
 ```clojure
-(defcomponent DataComponent []
+(p/defcomponent DataComponent []
   :data   (atom 0)
   :thread (future
            (dotimes [n 100]
              (Thread/sleep 1000)
              (swap! data inc))))
 
-(defcomponent AtomObserver [observed-atom tries]
+(p/defcomponent AtomObserver [observed-atom tries]
   :thread (future
            (dotimes [n tries]
              (Thread/sleep 2000)
@@ -147,7 +236,7 @@ described above: the attached component gets started once the parent component i
 (def observer (map->AtomObserver {:tries 10}))
 (def data-component
   (-> (map->DataComponent {})
-      (peripheral/attach :observer observer {:observed-atom :data})))
+      (p/attach :observer observer {:observed-atom :data})))
 ```
 
 `attach` takes the component to attach to, the key to use and the component to be attached as parameters, as well as a
@@ -156,7 +245,7 @@ When this ad-hoc couple is started `DataComponent`'s atom will be injected as `A
 see a printout of the current value every 2 seconds:
 
 ```clojure
-(peripheral/start data-component)
+(p/start data-component)
 ;; observed value: 2
 ;; observed value: 3
 ;; observed value: 5
@@ -166,17 +255,17 @@ see a printout of the current value every 2 seconds:
 ;; ...
 ```
 
-### `defsystem`
+## Systems
+
+### Creating a System
 
 The `defsystem` macro helps with declarativley building up your system:
 
 ```clojure
-(require '[peripheral.core :as peripheral :refer [defsystem connect]])
-
-(defsystem Sys [^:global ^:data config
-                ^:global thread-pool
-                a b c]
-  (connect :a :source :c))
+(p/defsystem Sys [^:global ^:data config
+                  ^:global thread-pool
+                  a b c]
+  (p/connect :a :source :c))
 ```
 
 There are two types of metadata for the system fields: `:data` which marks a plain data field (as opposed to a system component)
@@ -217,7 +306,7 @@ On startup, the configuration will be distributed to all components and thread p
 (`peripheral.core/start` is just a reference to `com.stuartsierra.component/start`):
 
 ```clojure
-(peripheral/start system)
+(p/start system)
 ;; starting :thread-pool using configuration: {:config-key config-value}
 ;; starting :b using configuration: {:config-key config-value}
 ;; starting :c using configuration: {:config-key config-value}
@@ -245,8 +334,8 @@ functionality that will only start the components you want (and their dependenci
 example this might look like the following:
 
 ```clojure
-(def c-only (peripheral/subsystem system [:c]))
-(peripheral/start c-only)
+(def c-only (p/subsystem system [:c]))
+(p/start c-only)
 ;; starting :thread-pool using configuration: {:config-key config-value}
 ;; starting :c using configuration: {:config-key config-value}
 ;; => #user.Sys{:config {:config-key "config-value"}, ...}
