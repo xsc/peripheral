@@ -30,7 +30,10 @@
 (defmacro with-start
   "Start the given component, binding the started component to the given form,
    ensuring the shutdown of the component after the body has been executed."
-  [[form component] & body]
+  [[form component & more] & body]
   `(with-start*
      ~component
-     (fn [~form] ~@body)))
+     (fn [~form]
+       ~(if (seq more)
+          (list* `with-start more body)
+          (list* `do body)))))
