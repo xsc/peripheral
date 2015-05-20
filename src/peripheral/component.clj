@@ -293,7 +293,7 @@
   [id dependencies & component-logic]
   (let [{:keys [this fields specifics lifecycle]} (analyze-component-logic component-logic)
         field-syms (map (comp symbol name first) fields)
-        record-fields (set (concat field-syms dependencies))
+        record-fields (distinct (concat dependencies field-syms))
         this (or this (gensym "this"))]
     `(defrecord ~id [~@record-fields]
        component/Lifecycle
