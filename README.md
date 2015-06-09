@@ -107,10 +107,10 @@ This expands to:
 
 ```clojure
 (p/defcomponent Parent [data]
-  :component/child1
+  :child1
   (p/start (map->Child (assoc data :name "child-1")))
   #(p/stop %)
-  :component/child2
+  :child2
   (p/start (map->Child (assoc data :name "child-2")))
   #(p/stop %))
 ```
