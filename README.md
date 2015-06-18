@@ -211,7 +211,7 @@ You can access the current state of the component record by binding it to a symb
 ### Attach/Detach (ad-hoc Coupling)
 
 Sometimes you want to reuse parts of a component. For example, there might be an event bus that is created by a component
-`S` and you want to attach a reporting component `S` directly to said bus. It would make sense to start up and shut down `R`
+`S` and you want to attach a reporting component `R` directly to said bus. It would make sense to start up and shut down `R`
  and `S` together and to offer `R` access to the event bus but `S` does not accomodate for the existence of `R` (it does not
 contain logic to start up `R` once the event-bus is ready). One could create another component that manually handles dependency
 injection and starts the two in the right order but that is more tedious than necessary.
