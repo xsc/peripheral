@@ -171,21 +171,31 @@
 ;; ## Attach/Detach
 
 (defcomponent Test [state-atom]
-  :state (do (reset! state-atom :go) :started))
+  :state :started
+  :on/start   (swap! state-atom conj :start)
+  :on/stop    (swap! state-atom conj :stop)
+  :on/started (swap! state-atom conj :started)
+  :on/stopped (swap! state-atom conj :stopped))
 
-(defcomponent Attach [parent-state state-atom])
+(defcomponent Attach [parent-state state-atom]
+  :on/started (swap! state-atom conj :attach-started)
+  :on/stopped (swap! state-atom conj :attach-stopped))
 
 (facts "about 'defcomponent' attach and detach."
        (fact "about dependency map"
-         (let [t (-> (map->Test {:state-atom (atom nil)})
-                     (attach :child (map->Attach {})
+         (let [state-atom (atom [])
+               t (-> (map->Test {:state-atom state-atom})
+                     (attach :child
+                             (map->Attach {})
                              {:parent-state :state
                               :state-atom :state-atom }))
                started (start t)
-               stopped (stop t)]
+               stopped (stop started)]
+           @state-atom => [:start :attach-started :started
+                           :stop  :attach-stopped :stopped]
+
            t =not=> running?
            (-> t :child) =not=> running?
-
            (-> t :state) => nil
            (-> t :state-atom) => truthy
            (-> t :child) => truthy
@@ -194,25 +204,25 @@
 
            started => running?
            (-> started :child) => running?
-
            (-> started :state) => :started
-           @(-> started :state-atom) => :go
+           (-> started :state-atom) => truthy
            (-> started :child :parent-state) => :started
            (-> started :child :state-atom) => truthy
-           @(-> started :child :state-atom) => :go
 
            stopped =not=> running?
            (-> stopped :child) =not=> running?
-
            (-> stopped :child :parent-state) => nil
            (-> stopped :child :state-atom) => nil))
        (fact "about dependency vector"
-         (let [t (-> (map->Test {:state-atom (atom nil)})
+         (let [state-atom (atom [])
+               t (-> (map->Test {:state-atom state-atom})
                      (attach :child (map->Attach {}) [:state-atom]))
-               started (start t)]
+               started (start t)
+               stopped (stop started)]
+           @state-atom => [:start :attach-started :started
+                           :stop  :attach-stopped :stopped]
            (-> started :child :parent-state) => nil
-           (-> started :child :state-atom) => truthy
-           @(-> started :child :state-atom) => :go)))
+           (-> started :child :state-atom) => truthy)))
 
 ;; ## Cleanup
 
