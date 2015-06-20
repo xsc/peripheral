@@ -281,3 +281,46 @@
         (:y started) => 11
         (:z started) => 6
         (class (:v started)) => ThisTest))
+
+;; ## Component Seqs
+
+(defcomponent TestSeqElement [fail? state-atom]
+  :on/start
+  (when fail?
+    (throw (Exception.)))
+  :on/started
+  (swap! state-atom conj :element-started)
+  :on/stopped
+  (swap! state-atom conj :element-stopped))
+
+(defcomponent TestSeq [n state-atom fail?]
+  :components/children
+  (concat
+    (repeatedly (dec n) #(map->TestSeqElement {:state-atom state-atom}))
+    [(map->TestSeqElement {:fail? fail?, :state-atom state-atom})]))
+
+(facts "about instantiating a variable-length seq of components."
+       (fact "about successful startup."
+         (let [state-atom (atom [])
+               t (map->TestSeq {:n 5, :state-atom state-atom})
+               started (start t)
+               stopped (stop started)
+               started-children (:children started)
+               stopped-children (:children stopped)]
+           stopped-children => nil?
+
+           (count started-children) => 5
+           started-children => (has every? #(instance? TestSeqElement %))
+           started-children => (has every? running?)
+
+           (count @state-atom)  => 10
+           (set (take 5 @state-atom)) => #{:element-started}
+           (set (drop 5 @state-atom)) => #{:element-stopped}))
+       (fact "about cleanup after exception."
+         (let [state-atom (atom [])
+               t (map->TestSeq {:n 5, :fail? true, :state-atom state-atom})]
+           (start t) => (throws IllegalStateException #"could not update field 'children'")
+
+           (count @state-atom)  => 8
+           (set (take 4 @state-atom)) => #{:element-started}
+           (set (drop 4 @state-atom)) => #{:element-stopped})))
