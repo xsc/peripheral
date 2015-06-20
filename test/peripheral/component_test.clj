@@ -1,6 +1,9 @@
 (ns peripheral.component-test
   (:require [midje.sweet :refer :all]
-            [peripheral.component :refer [defcomponent attach running?]]
+            [peripheral.component
+             [attach :refer [attach]]
+             [state :refer [running?]]]
+            [peripheral.component :refer [defcomponent]]
             [com.stuartsierra.component :refer [start stop]]))
 
 ;; ## Basic Functionality
@@ -168,21 +171,31 @@
 ;; ## Attach/Detach
 
 (defcomponent Test [state-atom]
-  :state (do (reset! state-atom :go) :started))
+  :state :started
+  :on/start   (swap! state-atom conj :start)
+  :on/stop    (swap! state-atom conj :stop)
+  :on/started (swap! state-atom conj :started)
+  :on/stopped (swap! state-atom conj :stopped))
 
-(defcomponent Attach [parent-state state-atom])
+(defcomponent Attach [parent-state state-atom]
+  :on/started (swap! state-atom conj :attach-started)
+  :on/stopped (swap! state-atom conj :attach-stopped))
 
 (facts "about 'defcomponent' attach and detach."
        (fact "about dependency map"
-         (let [t (-> (map->Test {:state-atom (atom nil)})
-                     (attach :child (map->Attach {})
+         (let [state-atom (atom [])
+               t (-> (map->Test {:state-atom state-atom})
+                     (attach :child
+                             (map->Attach {})
                              {:parent-state :state
                               :state-atom :state-atom }))
                started (start t)
-               stopped (stop t)]
+               stopped (stop started)]
+           @state-atom => [:start :attach-started :started
+                           :stop  :attach-stopped :stopped]
+
            t =not=> running?
            (-> t :child) =not=> running?
-
            (-> t :state) => nil
            (-> t :state-atom) => truthy
            (-> t :child) => truthy
@@ -191,25 +204,25 @@
 
            started => running?
            (-> started :child) => running?
-
            (-> started :state) => :started
-           @(-> started :state-atom) => :go
+           (-> started :state-atom) => truthy
            (-> started :child :parent-state) => :started
            (-> started :child :state-atom) => truthy
-           @(-> started :child :state-atom) => :go
 
            stopped =not=> running?
            (-> stopped :child) =not=> running?
-
            (-> stopped :child :parent-state) => nil
            (-> stopped :child :state-atom) => nil))
        (fact "about dependency vector"
-         (let [t (-> (map->Test {:state-atom (atom nil)})
+         (let [state-atom (atom [])
+               t (-> (map->Test {:state-atom state-atom})
                      (attach :child (map->Attach {}) [:state-atom]))
-               started (start t)]
+               started (start t)
+               stopped (stop started)]
+           @state-atom => [:start :attach-started :started
+                           :stop  :attach-stopped :stopped]
            (-> started :child :parent-state) => nil
-           (-> started :child :state-atom) => truthy
-           @(-> started :child :state-atom) => :go)))
+           (-> started :child :state-atom) => truthy)))
 
 ;; ## Cleanup
 
@@ -268,3 +281,46 @@
         (:y started) => 11
         (:z started) => 6
         (class (:v started)) => ThisTest))
+
+;; ## Component Seqs
+
+(defcomponent TestSeqElement [fail? state-atom]
+  :on/start
+  (when fail?
+    (throw (Exception.)))
+  :on/started
+  (swap! state-atom conj :element-started)
+  :on/stopped
+  (swap! state-atom conj :element-stopped))
+
+(defcomponent TestSeq [n state-atom fail?]
+  :components/children
+  (concat
+    (repeatedly (dec n) #(map->TestSeqElement {:state-atom state-atom}))
+    [(map->TestSeqElement {:fail? fail?, :state-atom state-atom})]))
+
+(facts "about instantiating a variable-length seq of components."
+       (fact "about successful startup."
+         (let [state-atom (atom [])
+               t (map->TestSeq {:n 5, :state-atom state-atom})
+               started (start t)
+               stopped (stop started)
+               started-children (:children started)
+               stopped-children (:children stopped)]
+           stopped-children => nil?
+
+           (count started-children) => 5
+           started-children => (has every? #(instance? TestSeqElement %))
+           started-children => (has every? running?)
+
+           (count @state-atom)  => 10
+           (set (take 5 @state-atom)) => #{:element-started}
+           (set (drop 5 @state-atom)) => #{:element-stopped}))
+       (fact "about cleanup after exception."
+         (let [state-atom (atom [])
+               t (map->TestSeq {:n 5, :fail? true, :state-atom state-atom})]
+           (start t) => (throws IllegalStateException #"could not update field 'children'")
+
+           (count @state-atom)  => 8
+           (set (take 4 @state-atom)) => #{:element-started}
+           (set (drop 4 @state-atom)) => #{:element-stopped})))

@@ -1,255 +1,90 @@
 (ns peripheral.component
   (:require [com.stuartsierra.component :as component]
-            [peripheral.utils :refer [is-class-name?]]))
+            [peripheral.component
+             [analysis :refer [analyze-component]]
+             [attach :as attach]
+             [lifecycle :as lifecycle]
+             [state :as state]]
+            [potemkin :refer [unify-gensyms]]))
 
-;; ## Component Metadata
+;; ## Analysis
 
-(defn set-started
-  "Set started flag in metadata."
-  [component]
-  (vary-meta component assoc ::running true))
+(defn- wrap-field-access
+  "Enable access to component fields and the component itself
+   using the given symbols."
+  [all-fields this params form]
+  `(fn [{:keys [~@all-fields] :as ~this} ~@params]
+     ~form))
 
-(defn set-stopped
-  "Set stopped flag in metadata."
-  [component]
-  (vary-meta component dissoc ::running))
+(defn- prepare-fields
+  "Wrap start/stop functions to have access to the current
+   field values during startup."
+  [fields all-fields this]
+  (unify-gensyms
+    (vec
+      (for [[field {:keys [start stop]}] fields]
+        (->> {:start (wrap-field-access all-fields this [] start)
+              :stop  (when stop
+                       (wrap-field-access
+                         all-fields this `[v##]
+                         `(~stop v##)))}
+             (vector field))))))
 
-(defn running?
-  "Check whether the component is running (per its metadata)."
-  [component]
-  (boolean (-> component meta ::running)))
+(defn- prepare-lifecycle
+  "Wrap lifecycle function to have access to the field values at
+   time of calling."
+  [lifecycle all-fields this]
+  (unify-gensyms
+    (->> (for [[k form] lifecycle]
+           [k (wrap-field-access all-fields this [] `(~form ~this))])
+         (into {}))))
 
-;; ## Attach/Detach
-;;
-;; If a component A is attached to another component B that means it will be started
-;; after B has been and stopped before B.
+(defn- analyze
+  "Run analysis on component and prepare results for code generation."
+  [dependencies component-logic]
+  (let [{:keys [fields this]
+         :or {this (gensym "this")}
+         :as logic} (analyze-component component-logic)
+        record-fields (concat
+                        dependencies
+                        (map (comp symbol name first) fields))]
+    (-> logic
+        (update-in [:fields] prepare-fields record-fields this)
+        (update-in [:lifecycle] prepare-lifecycle record-fields this)
+        (assoc :this this)
+        (assoc :record-fields record-fields))))
 
-(defn- add-attach-key
-  "Add attach dependencies to the given component's metadata."
-  [component k dependencies]
-  (vary-meta component assoc-in [::attach k]
-             (if (map? dependencies)
-               dependencies
-               (into {} (map #(vector % %) dependencies)))))
+;; ## Startup Logic
 
-(defn- remove-attach-key
-  "Remove attach dependencies from the given component's metadata."
-  [component k]
-  (vary-meta component update-in [::attach] dissoc k))
+(defn- generate-start
+  "Generate startup logic."
+  [{:keys [fields lifecycle]} component]
+  `(if-not (state/running? ~component)
+     (let [lifecycles# ~(select-keys lifecycle [:start :started])]
+       (-> ~component
+           (lifecycle/apply-lifecycle lifecycles# :start)
+           (lifecycle/start-fields    ~fields)
+           (attach/start-attached-components)
+           (lifecycle/apply-lifecycle lifecycles# :started)
+           (state/set-started)))
+     ~component))
 
-(defn start-attached-components
-  "Start all attached components."
-  [component]
-  (->> (for [[component-key dependencies] (-> component meta ::attach)]
-         (when-let [c (get component component-key)]
-           (let [component-with-dependencies (reduce
-                                               (fn [c [assoc-key deps-key]]
-                                                 (assoc c assoc-key (get component deps-key)))
-                                               c dependencies)]
-             (vector
-               component-key
-               (component/start component-with-dependencies)))))
-       (into {})
-       (merge component)))
+;; ## Shutdown Logic
 
-(defn stop-attached-components
-  "Stop all attached components."
-  [component]
-  (->> (for [[component-key dependencies] (-> component meta ::attach)]
-         (when-let [c (get component component-key)]
-           (let [stopped (component/stop c)]
-             (vector
-               component-key
-               (reduce dissoc stopped (keys dependencies))))))
-       (into {})
-       (merge component)))
-
-(defn attach
-  "Attach the given component to this one (associng it using `k` and having it depend on `dependencies`)."
-  ([component k attach-component]
-   (attach component k attach-component nil))
-  ([component k attach-component dependencies]
-   (assert (not (contains? component k)) "there is already a component with that key attached.")
-   (-> component
-       (assoc k attach-component)
-       (add-attach-key k dependencies))))
-
-(defn detach
-  "Detach the given component key from this component."
-  [component k]
-  (-> component
-      (dissoc k)
-      (remove-attach-key k)))
-
-;; ## Helpers
-
-(defmacro with-field-exception
-  "Wrap field initialization/cleanup to produce more expressive exception."
-  [field & body]
-  `(try
-     (do ~@body)
-     (catch Throwable ex#
-       (let [msg# (format ~(format "could not update field '%s' (%%s)" field) (.getMessage ex#))]
-         (throw (Exception. msg# ex#))))))
-
-(defn call-on-component
-  "Call the given function on the given component iff `f` really is a function. Will return
-   the unaltered component if `f` returns nil."
-  [component k f]
-  (or
-    (when (fn? f)
-      (when-let [component' (f component)]
-        (if (= (class component') (class component))
-          component'
-          (throw
-            (Exception.
-              (format "component class changed from %s to %s in %s handler."
-                      (class component)
-                      (class component')
-                      k))))))
-    component))
+(defn- generate-stop
+  "Generate shutdown logic."
+  [{:keys [fields this lifecycle]} component]
+  `(if (state/running? ~component)
+     (let [lifecycles# ~(select-keys lifecycle [:stop :stopped])]
+       (-> ~component
+           (lifecycle/apply-lifecycle lifecycles# :stop)
+           (attach/stop-attached-components)
+           (lifecycle/stop-fields     ~fields)
+           (lifecycle/apply-lifecycle lifecycles# :stopped)
+           (state/set-stopped)))
+     ~component))
 
 ;; ## `defcomponent`
-
-(defn- add-field
-  "Add field to analysis map."
-  [result-map field start stop]
-  (update-in result-map [:fields]
-             (comp vec conj)
-             [field {:start start :stop stop}]))
-
-(defn- add-this
-  [result-map k sym]
-  (assert (= k :as) "only :this/as is allowed to bind component.")
-  (assert (not (:this result-map)) "duplicate ':this/as'  statement.")
-  (assert (symbol? sym) (format ":this/as needs symbol; given: %s" (pr-str sym)))
-  (assoc result-map :this sym))
-
-(defn- finalize-analysis
-  [result-map rest-seq]
-  "Process everything that is left and add data to analysis map."
-  (assoc result-map :specifics rest-seq))
-
-(defn- add-passive-lifecycle
-  [m k form]
-  (update-in m [:lifecycle k]
-             (fn [f]
-               (if f
-                 `(let [f1# ~f]
-                    (fn [this#]
-                      (let [this# (f1# this#)]
-                        ~form
-                        this#)))
-                 `(fn [this#]
-                    ~form
-                    this#)))))
-
-(defn- add-active-lifecycle
-  [m k fn-form]
-  (update-in m [:lifecycle k]
-             (fn [f]
-               (if f
-                 `(let [f1# ~f
-                        f2# ~fn-form]
-                    (fn [this#]
-                      (f2# (or (f1# this#) this#))))
-                 fn-form))))
-
-(def ^:private namespace-dispatch
-  "Allow for special keywords that are handled by their namespace."
-  {"peripheral" add-active-lifecycle
-   "on"         add-passive-lifecycle
-   "this"       add-this
-   "component"  #(add-field % %2 `(component/start ~%3) `component/stop)})
-
-(defn- analyze-component-logic
-  "Create pair of a seq of fields (as a pair, associated with a map of start/stop logic), as well
-   as a seq of component specifics."
-  [logic-seq]
-  (loop [sq logic-seq
-         m {}]
-    (if (empty? sq)
-      (finalize-analysis m sq)
-      (let [[[k a b] rst] (split-at 3 sq)]
-        (if (keyword? k)
-          (if-let [dispatch (namespace-dispatch (namespace k))]
-            (recur (drop 2 sq) (dispatch m (-> k name keyword) a))
-            (if (or (keyword? b) (is-class-name? b))
-              (recur (drop 2 sq) (add-field m k a nil))
-              (recur rst (add-field m k a b))))
-          (finalize-analysis m sq))))))
-
-(defn- create-silent-cleanup-forms
-  [fields cleanup-syms]
-  (for [sym (reverse cleanup-syms)
-        :let [field (keyword (name sym))
-              stop (get-in fields [field :stop])]
-        :when stop]
-    `(try
-       (~stop ~sym)
-       (catch Throwable ~'_))))
-
-(defn- with-field-cleanup
-  [fields cleanup-syms & body]
-  (if (seq cleanup-syms)
-    `(try
-       (do ~@body)
-       (catch Throwable ex#
-         ~@(create-silent-cleanup-forms
-             (into {} fields)
-             cleanup-syms)
-         (throw ex#)))
-    `(do ~@body)))
-
-(defn- create-init-form
-  "Create component initialization form that sequentially sets the values of the component fields.
-   If an exception occurs, all previously initialized fields are cleaned up."
-  [fields field-syms this]
-  (let [fn-forms (map-indexed
-                   (fn [i [field {:keys [start]}]]
-                     (let [ready (take i field-syms)]
-                       `(fn [{:keys [~@ready] :as ~this}]
-                          (with-field-exception ~field
-                            ~(with-field-cleanup fields ready
-                               `(assoc ~this ~field ~start))))))
-                   fields)]
-    `(reduce #(%2 %1) ~this [~@fn-forms])))
-
-(defn- create-call-form
-  [this field-syms k fn-form]
-  (->> (when fn-form
-         `(fn [{:keys [~@field-syms] :as this#}]
-            (~fn-form this#)))
-       (list `call-on-component this k)))
-
-(defn- create-start-form
-  "Create component startup form initializing the fields in order of definition."
-  [fields {:keys [start started]} field-syms this]
-  `(let [~this ~(create-call-form this field-syms :start start)]
-     (-> ~(-> (create-init-form fields field-syms this)
-              (create-call-form field-syms :started started))
-         (start-attached-components)
-         (set-started))))
-
-(defn- create-cleanup-form
-  "Create component cleanup form that sequentially resets the values of the component fields to
-   either nil or the result of a supplied cleanup function."
-  [fields this]
-  `(-> ~this
-       ~@(for [[field {:keys [stop]}] (reverse fields)]
-           (if stop
-             `(update-in [~field] #(with-field-exception ~field (~stop %)))
-             `(assoc ~field nil)))))
-
-(defn- create-stop-form
-  "Take a map of fields with start/stop logic and create the map to be used for
-   cleanup."
-  [fields {:keys [stop stopped]} field-syms this]
-  `(let [~this ~(create-call-form this field-syms :stop stop)]
-     (-> ~(-> (create-cleanup-form fields this)
-              (create-call-form field-syms :stopped stopped))
-         (stop-attached-components)
-         (set-stopped))))
 
 (defmacro defcomponent
   "Create new component type from a vector of `dependencies` (the components/fields that should
@@ -291,22 +126,16 @@
        :z (- (:y *this*) 5))
   "
   [id dependencies & component-logic]
-  (let [{:keys [this fields specifics lifecycle]} (analyze-component-logic component-logic)
-        field-syms (map (comp symbol name first) fields)
-        record-fields (distinct (concat dependencies field-syms))
-        this (or this (gensym "this"))]
-    `(defrecord ~id [~@record-fields]
-       component/Lifecycle
-       (start [~this]
-         (if (running? ~this)
-           ~this
-           ~(create-start-form fields lifecycle field-syms this)))
-       (stop [~this]
-         (or
-           (when (running? ~this)
-             ~(create-stop-form fields lifecycle field-syms this))
-           ~this))
-       ~@specifics)))
+  (let [logic (analyze dependencies component-logic)
+        {:keys [record-fields specifics this]} logic]
+    (unify-gensyms
+      `(defrecord ~id [~@record-fields]
+         component/Lifecycle
+         (start [this##]
+           ~(generate-start logic `this##))
+         (stop [this##]
+           ~(generate-stop logic `this##))
+         ~@specifics))))
 
 ;; ## Restart
 
