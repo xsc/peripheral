@@ -1,6 +1,9 @@
 (ns peripheral.component-test
   (:require [midje.sweet :refer :all]
-            [peripheral.component :refer [defcomponent attach running?]]
+            [peripheral.component
+             [attach :refer [attach]]
+             [state :refer [running?]]]
+            [peripheral.component :refer [defcomponent]]
             [com.stuartsierra.component :refer [start stop]]))
 
 ;; ## Basic Functionality

@@ -1,8 +1,10 @@
 (ns peripheral.system
   (:require [com.stuartsierra.component :as component]
             [com.stuartsierra.dependency :as dep]
-            [peripheral.component :refer [defcomponent running?]]
-            [peripheral.utils :refer [is-class-name?]]))
+            [peripheral.component.state :refer [running?]]
+            [peripheral
+             [component :refer [defcomponent]]
+             [utils :refer [is-class-name?]]]))
 
 ;; ## `defsystem`
 
