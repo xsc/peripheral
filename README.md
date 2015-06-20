@@ -6,9 +6,20 @@ Stuart Sierra's [component](https://github.com/stuartsierra/component) library.
 [![Build Status](https://travis-ci.org/xsc/peripheral.svg?branch=master)](https://travis-ci.org/xsc/peripheral)
 [![endorse](https://api.coderwall.com/xsc/endorsecount.png)](https://coderwall.com/xsc)
 
+## Usage
+
+__Leiningen (via [Clojars](https://clojars.org/peripheral))__
+
+[![Clojars Project](http://clojars.org/peripheral/latest-version.svg)](http://clojars.org/peripheral)
+
+__REPL__
+
+```clojure
+(require '[peripheral.core :as p])
+```
+
 ## Table of Contents
 
-  * [Usage](#usage)
   * [Components](#components)
     * [Creating a Component](#creating-a-component)
     * [Protocol Implementation](#protocol-implementation)
@@ -24,20 +35,6 @@ Stuart Sierra's [component](https://github.com/stuartsierra/component) library.
     * [Example](#example)
     * [Subsystems](#subsystems)
   * [License](#license)
-
-(created by [gh-md-toc](https://github.com/ekalinin/github-markdown-toc))
-
-## Usage
-
-__Leiningen (via [Clojars](https://clojars.org/peripheral))__
-
-[![Clojars Project](http://clojars.org/peripheral/latest-version.svg)](http://clojars.org/peripheral)
-
-__REPL__
-
-```clojure
-(require '[peripheral.core :as p])
-```
 
 ## Components
 
