@@ -3,7 +3,7 @@
   :url "https://github.com/xsc/peripheral"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.7.0-RC1"]
+  :dependencies [[org.clojure/clojure "1.7.0-RC2"]
                  [com.stuartsierra/component "0.2.3"]
                  [potemkin "0.3.13"]]
   :profiles {:dev {:dependencies [[midje "1.6.3" :exclusions [joda-time]]
