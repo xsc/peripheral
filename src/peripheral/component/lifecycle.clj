@@ -79,7 +79,7 @@
       (silently-call-all cleanup-fns)
       (throw
         (IllegalStateException.
-          (format "could not update field '%s' (%s)"
+          (format "in '%s' (%s)"
                   (name field)
                   (.getMessage t))
           t)))))
