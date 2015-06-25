@@ -13,6 +13,16 @@
              (comp vec conj)
              [field {:start start :stop stop, :record? true}]))
 
+;; ## Steps
+
+(defn- add-step
+  "Add arbitrary logic (implicit fields) to analysis map."
+  [result-map field form]
+  (update-in result-map
+             [:fields]
+             (comp vec conj)
+             [field {:start form, :record? false}]))
+
 ;; ## :this/as
 
 (defn- add-this
@@ -62,6 +72,16 @@
     `(lifecycle/start-all ~component-seq-form)
     `lifecycle/stop-all))
 
+;; ## :assert/...
+
+(defn- add-assertion
+  "Add assertion to startup logic."
+  [m k assertion-form]
+  (add-step
+    m
+    k
+    `(assert ~assertion-form)))
+
 ;; ## Analysis
 
 (def ^:private namespace-dispatch
@@ -69,6 +89,7 @@
   {"peripheral" add-active-lifecycle
    "on"         add-passive-lifecycle
    "this"       add-this
+   "assert"     add-assertion
    "component"  add-component
    "components" add-components})
 
