@@ -11,7 +11,7 @@
   (update-in result-map
              [:fields]
              (comp vec conj)
-             [field {:start start :stop stop}]))
+             [field {:start start :stop stop, :record? true}]))
 
 ;; ## :this/as
 

@@ -44,12 +44,18 @@
 
 ;; ## Fields
 
+(defn- assoc-component
+  [component {:keys [record?]} k v]
+  (if record?
+    (assoc component k v)
+    component))
+
 (defn- start-field
   "Given a component, field key, start and stop fns, try to start up
    the field. Returns a tupel of `[new-component field-cleanup-fn]`."
-  [component k start stop]
+  [component k {:keys [start stop] :as spec}]
   (let [value (start component)
-        component' (assoc component k value)
+        component' (assoc-component component spec k value)
         cleanup! (if stop
                    #(stop component' value)
                    (constantly nil))]
@@ -66,9 +72,9 @@
 (defn- start-field-with-cleanup
   "Start field within the given component, calling all cleanup-fns if
    anything went wrong."
-  [component field start stop cleanup-fns]
+  [component field spec cleanup-fns]
   (try
-    (start-field component field start stop)
+    (start-field component field spec)
     (catch Throwable t
       (silently-call-all cleanup-fns)
       (throw
@@ -86,12 +92,11 @@
          remaining field->fns
          cleanup-fns []]
     (if (seq remaining)
-      (let [[[field {:keys [start stop]}] & rst] remaining
+      (let [[[field spec] & rst] remaining
             [component' cleanup!] (start-field-with-cleanup
                                     component
                                     field
-                                    start
-                                    stop
+                                    spec
                                     cleanup-fns)]
         (recur component' rst (cons cleanup! cleanup-fns)))
       component)))
@@ -99,15 +104,15 @@
 (defn- stop-field
   "Stop a single field, returning a tupel of
    `[false new-component]` or `[true exception]`."
-  [component field stop]
+  [component field {:keys [stop] :as spec}]
   (let [current-value (get component field)]
     (if stop
       (try
         [false (->> (stop component current-value)
-                    (assoc component field))]
+                    (assoc-component component spec field))]
         (catch Throwable t
           [true t]))
-      [false (assoc component field nil)])))
+      [false (assoc-component component spec field nil)])))
 
 (defn stop-fields
   "Stop all fields within the given component. Expects the same
@@ -117,8 +122,8 @@
          remaining (reverse field->fns)
          failed {}]
     (if (seq remaining)
-      (let [[[field {:keys [stop]}] & rst] remaining
-            [failed? value] (stop-field component field stop)]
+      (let [[[field spec] & rst] remaining
+            [failed? value] (stop-field component field spec)]
         (if failed?
           (recur component rst (assoc failed field value))
           (recur value rst failed)))

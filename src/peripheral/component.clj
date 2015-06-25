@@ -22,12 +22,13 @@
   [fields all-fields this]
   (unify-gensyms
     (vec
-      (for [[field {:keys [start stop]}] fields]
+      (for [[field {:keys [start stop] :as spec}] fields]
         (->> {:start (wrap-field-access all-fields this [] start)
               :stop  (when stop
                        (wrap-field-access
                          all-fields this `[v##]
                          `(~stop v##)))}
+             (into spec)
              (vector field))))))
 
 (defn- prepare-lifecycle
@@ -45,9 +46,10 @@
   (let [{:keys [fields this]
          :or {this (gensym "this")}
          :as logic} (analyze-component component-logic)
-        record-fields (concat
-                        dependencies
-                        (map (comp symbol name first) fields))]
+        record-fields (->> fields
+                           (filter (comp :record? second))
+                           (map (comp symbol name first))
+                           (concat dependencies))]
     (-> logic
         (update-in [:fields] prepare-fields record-fields this)
         (update-in [:lifecycle] prepare-lifecycle record-fields this)
