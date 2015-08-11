@@ -62,7 +62,7 @@ You can see multiple things here:
 - dependencies and internal fields can be accessed using their symbols (3),
 - cleanup is done by supplying a single-parameter function that takes the field's value (4).
 
-Note that component data flows top-to-bottom, so while `:poll-thread`'s initialization has access
+Note that component data flows top-to-bottom, so while `:fill-thread`'s initialization has access
 to the already initialized value of `:queue-data`, the reverse wouldn't hold.
 
 You can start/stop a component using `peripheral.core/start` and `peripheral.core/stop` which are
