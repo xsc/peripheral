@@ -33,6 +33,19 @@
         (:n-inc stopped) => 0
         (:n-twice stopped) => nil))
 
+;; ## Field in Dependency Vector + Body
+
+(defcomponent TestOverride [n]
+  :n (or n 1))
+
+(fact "about 'defcomponent' + dependency override."
+      (let [t (map->TestOverride {:n 0})
+            started (start t)]
+        (:n started) => 0)
+      (let [t (map->TestOverride {})
+            started (start t)]
+        (:n started) => 1))
+
 ;; ## Protocol Implementation
 
 (defprotocol Proto

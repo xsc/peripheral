@@ -49,7 +49,8 @@
         record-fields (->> fields
                            (filter (comp :record? second))
                            (map (comp symbol name first))
-                           (concat dependencies))]
+                           (concat dependencies)
+                           (distinct))]
     (-> logic
         (update-in [:fields] prepare-fields record-fields this)
         (update-in [:lifecycle] prepare-lifecycle record-fields this)
