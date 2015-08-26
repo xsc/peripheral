@@ -170,7 +170,7 @@
   [k f component]
   (try
     (f component)
-    (catch Exception e
+    (catch Throwable e
       (throw
         (IllegalStateException.
           (format "uncaught exception in lifecycle function '%s'." k)
