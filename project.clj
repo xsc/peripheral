@@ -8,9 +8,7 @@
                  [potemkin "0.4.1"]]
   :profiles {:dev {:dependencies [[midje "1.7.0"]]
                    :plugins [[lein-midje "3.1.3"]]
-                   :exclusions [org.clojure/clojure]}
-             :1.5 {:dependencies [[org.clojure/clojure "1.5.1"]]}
-             :1.6 {:dependencies [[org.clojure/clojure "1.6.0"]]}}
+                   :exclusions [org.clojure/clojure]}}
   :aliases {"test" "midje"
-            "all"  ["with-profile" "+1.5:+1.6:+dev"]}
+            "all"  ["with-profile" "+dev"]}
   :pedantic? :abort)

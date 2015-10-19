@@ -12,6 +12,10 @@ __Leiningen (via [Clojars](https://clojars.org/peripheral))__
 
 [![Clojars Project](http://clojars.org/peripheral/latest-version.svg)](http://clojars.org/peripheral)
 
+Note that `com.stuartsierra/component` >= 0.3.0 drops support for Clojure <=
+1.7.0. To use peripheral with these, explicitly include an older version of the
+`component` artifact.
+
 __REPL__
 
 ```clojure
