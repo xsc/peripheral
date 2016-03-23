@@ -18,6 +18,44 @@
                   k))))
     component))
 
+;; ## Exceptions
+
+(defn- simple-class-name
+  [v]
+  (.getSimpleName (class v)))
+
+(defn- extend-lifecycle-exception
+  [^Throwable t fqn]
+  (let [data (ex-data t)]
+    (ex-info
+      (format "%s > %s" fqn (.getMessage t))
+      (update data ::ex-path conj fqn)
+      (.getCause t))))
+
+(defn- create-lifecycle-exception
+  [^Throwable t fqn]
+  (let [root-cause (loop [^Throwable t t]
+                     (if-let [cause (.getCause t)]
+                       (recur cause)
+                       t))]
+    (ex-info
+      (format "%s > %s [%s]"
+              fqn
+              (.getMessage root-cause)
+              (simple-class-name root-cause))
+      {::ex-path (list fqn)}
+      t)))
+
+(defn- lifecycle-exception
+  ([fqn t]
+   (if (-> t ex-data ::ex-path)
+     (extend-lifecycle-exception t fqn)
+     (create-lifecycle-exception t fqn)))
+  ([component field ^Throwable t]
+   (lifecycle-exception
+     (str (simple-class-name component) "." (name field))
+     t)))
+
 ;; ## Multiple Components
 
 (defn stop-all
@@ -33,14 +71,17 @@
    if any startup fails."
   [component-seq]
   (reduce
-    (fn [started component]
+    (fn [started [index component]]
       (try
         (conj started (component/start component))
         (catch Throwable t
           (stop-all started)
-          (throw t))))
+          (throw
+            (lifecycle-exception
+              (str "[" index "]")
+              t)))))
     []
-    component-seq))
+    (map vector (range) component-seq)))
 
 ;; ## Fields
 
@@ -77,12 +118,7 @@
     (start-field component field spec)
     (catch Throwable t
       (silently-call-all cleanup-fns)
-      (throw
-        (IllegalStateException.
-          (format "in '%s' (%s)"
-                  (name field)
-                  (.getMessage t))
-          t)))))
+      (throw (lifecycle-exception component field t)))))
 
 (defn start-fields
   "Start all fields within the given component. Expects a seq of
