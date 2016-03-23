@@ -142,8 +142,10 @@
 
 ;; ### Macro
 
-(defmacro defsystem
+(defmacro ^{:deprecated "0.5.0"} defsystem
   [id components & logic]
+  (println "WARN: The current defsystem syntax is deprecated and will be")
+  (println "      replaced with defsystem+'s in future versions.")
   (assert (vector? components) "defsystem expects a vector as 2nd parameter.")
   (assert (every? symbol? components) "defsystem expects a vector of symbols as 2nd parameter.")
   (let [[relations specifics] (split-with (complement is-class-name?) logic)]
