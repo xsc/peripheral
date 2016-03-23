@@ -21,7 +21,7 @@ __REPL__
 
 __Documentation__
 
-Auto-generated documentation can be found [here][doc];
+Auto-generated documentation can be found [here][doc].
 
 [doc]: http://xsc.github.io/peripheral/
 
