@@ -11,7 +11,7 @@
 
 ;; ### Relations
 
-(defn connect
+(defn ^{:deprecated "0.5.0"} connect
   "Let the component identified by `src-id` be using the component identified
    by `dst-id` as a dependency to be assoc'd in at the key `src-key`."
   ([m src-id dst-id] (connect m src-id dst-id dst-id))
