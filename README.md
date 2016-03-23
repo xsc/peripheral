@@ -4,7 +4,6 @@ __peripheral__ is a small library that aims to facilitate the creation of compon
 Stuart Sierra's [component](https://github.com/stuartsierra/component) library.
 
 [![Build Status](https://travis-ci.org/xsc/peripheral.svg?branch=master)](https://travis-ci.org/xsc/peripheral)
-[![endorse](https://api.coderwall.com/xsc/endorsecount.png)](https://coderwall.com/xsc)
 
 ## Usage
 
