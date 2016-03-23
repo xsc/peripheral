@@ -1,7 +1,8 @@
 (ns peripheral.system-test
   (:require [midje.sweet :refer :all]
             [com.stuartsierra.component :as component]
-            [peripheral.system :refer :all]))
+            [peripheral.system :refer :all]
+            [peripheral.system.subsystem :refer [subsystem]]))
 
 ;; ## Fixtures
 
