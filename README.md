@@ -1,9 +1,7 @@
-# peripheral
+# peripheral [![Build Status](https://travis-ci.org/xsc/peripheral.svg?branch=master)](https://travis-ci.org/xsc/peripheral)
 
 __peripheral__ is a small library that aims to facilitate the creation of components and component systems using
 Stuart Sierra's [component](https://github.com/stuartsierra/component) library.
-
-[![Build Status](https://travis-ci.org/xsc/peripheral.svg?branch=master)](https://travis-ci.org/xsc/peripheral)
 
 ## Usage
 
