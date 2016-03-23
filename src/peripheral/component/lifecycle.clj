@@ -209,7 +209,9 @@
     (catch Throwable e
       (throw
         (IllegalStateException.
-          (format "uncaught exception in lifecycle function '%s'." k)
+          (format "in lifecycle function %s > %s"
+                  k
+                  (.getMessage e))
           e)))))
 
 (defn apply-lifecycle
