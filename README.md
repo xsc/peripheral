@@ -278,7 +278,7 @@ see a printout of the current value every 2 seconds:
 
 ### Creating a System
 
-__Note:__ starting with peripheral 0.5.0, `defsystem` is deprecated in favour of
+__Note:__ Starting with peripheral 0.5.0, `defsystem` is deprecated in favour of
 `defsystem+` and will be made an alias for the latter in future versions.
 
 The `defsystem+` macro helps with declarativley building up your system:
