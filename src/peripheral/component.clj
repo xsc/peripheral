@@ -96,37 +96,45 @@
    Each keyword has to be followed by a form that will be executed at startup and optionally a
    (non-keyword) function to be run at shutdown.
 
-     (defcomponent LoopRunner [f interval]
-       :data   (fetch-some-data!)
-       :thread (doto (Thread. #(while (not (.isInterrupted ...)) ...))
-                 (.start))
-               #(.interrupt ^Thread %))
+   ```
+   (defcomponent LoopRunner [f interval]
+     :data   (fetch-some-data!)
+     :thread (doto (Thread. #(while (not (.isInterrupted ...)) ...))
+               (.start))
+             #(.interrupt ^Thread %))
+   ```
 
    The results of the form/function will be assoc'd into the component. Please use the `map->...`
    function to create an instance of the record. Using fields with the namespace `peripheral` you
    can manipulate the component record directly:
 
-     (defcomponent TestComponent [...]
-       :peripheral/start   #(...)      ;; called before fields are initialized
-       :peripheral/started #(...)      ;; called after fields are initialized
-       :peripheral/stop    #(...)      ;; called before fields are cleaned up
-       :peripheral/stopped #(...))     ;; called after fields are cleaned up
+   ```
+   (defcomponent TestComponent [...]
+     :peripheral/start   #(...)      ;; called before fields are initialized
+     :peripheral/started #(...)      ;; called after fields are initialized
+     :peripheral/stop    #(...)      ;; called before fields are cleaned up
+     :peripheral/stopped #(...))     ;; called after fields are cleaned up
+   ```
 
    Note that these take a function, not a form, and only allow for one value!
 
    If you don't need to alter the component record, the 'on' prefix can be used to directly
    execute forms:
 
-     (defcomponent TestComponent [...]
-       :on/start (println \"starting\"))
+   ```
+   (defcomponent TestComponent [...]
+     :on/start (println \"starting\"))
+   ```
 
    Finally, if you need access to the whole component, you can bind it to a symbol using
    ':this/as':
 
-     (defcomponent TestComponent [x]
-       :this/as *this*
-       :y (+ (:x *this*) 10)
-       :z (- (:y *this*) 5))
+   ```
+   (defcomponent TestComponent [x]
+     :this/as *this*
+     :y (+ (:x *this*) 10)
+     :z (- (:y *this*) 5))
+   ```
   "
   [id dependencies & component-logic]
   (let [logic (analyze dependencies component-logic)
