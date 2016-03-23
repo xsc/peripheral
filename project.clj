@@ -1,8 +1,11 @@
 (defproject peripheral "0.5.0-SNAPSHOT"
   :description "System Creation for `stuartsierra/component`."
   :url "https://github.com/xsc/peripheral"
-  :license {:name "Eclipse Public License"
-            :url "http://www.eclipse.org/legal/epl-v10.html"}
+  :license {:name "MIT License"
+            :url "https://opensource.org/licenses/MIT"
+            :author "Yannick Scherer"
+            :year 2014
+            :key "mit"}
   :dependencies [[org.clojure/clojure "1.8.0" :scope "provided"]
                  [com.stuartsierra/component "0.3.1"]
                  [potemkin "0.4.3"]]
