@@ -332,7 +332,7 @@
        (fact "about cleanup after exception."
          (let [state-atom (atom [])
                t (map->TestSeq {:n 5, :fail? true, :state-atom state-atom})]
-           (start t) => (throws IllegalStateException #"in 'children'")
+           (start t) => (throws clojure.lang.ExceptionInfo #"TestSeq\.children > \[4\]")
 
            (count @state-atom)  => 8
            (set (take 4 @state-atom)) => #{:element-started}
