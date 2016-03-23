@@ -19,6 +19,12 @@ __REPL__
 (require '[peripheral.core :as p])
 ```
 
+__Documentation__
+
+Auto-generated documentation can be found [here][doc];
+
+[doc]: http://xsc.github.io/peripheral/
+
 ## Table of Contents
 
   * [Components](#components)
