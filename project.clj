@@ -15,7 +15,7 @@
                              [lein-codox "0.9.4"]]
                    :codox {:project {:name "peripheral"}
                            :metadata {:doc/format :markdown}
-                           :source-uri "https://github.com/foo/bar/blob/clojars-{version}/{filepath}#L{line}"
+                           :source-uri "https://github.com/xsc/peripheral/blob/clojars-{version}/{filepath}#L{line}"
                            :output-path "doc"
                            :namespaces [peripheral.core]}
                    :exclusions [org.clojure/clojure]}}
