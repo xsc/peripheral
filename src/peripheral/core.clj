@@ -1,6 +1,7 @@
 (ns peripheral.core
-  (:require [peripheral component system]
+  (:require [peripheral component system system-plus]
             [peripheral.component attach state]
+            [peripheral.system subsystem]
             [com.stuartsierra.component :as component]
             [potemkin :refer [import-vars]]))
 
@@ -8,7 +9,11 @@
 
 (import-vars
   [peripheral.system
-   defsystem connect subsystem]
+   defsystem connect]
+  [peripheral.system-plus
+   defsystem+]
+  [peripheral.system.subsystem
+   subsystem]
   [peripheral.component
    defcomponent restart]
   [peripheral.component.attach

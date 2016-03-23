@@ -1,7 +1,8 @@
 (ns peripheral.system
   (:require [com.stuartsierra.component :as component]
             [com.stuartsierra.dependency :as dep]
-            [peripheral.component.state :refer [running?]]
+            [peripheral.system
+             [subsystem :as subsystem]]
             [peripheral
              [component :refer [defcomponent]]
              [utils :refer [is-class-name?]]]))
@@ -110,27 +111,16 @@
 
 ;; ### Startup/Shutdown
 
-(defn- add-active-components
-  "Add components to be activated to the system's metadata."
-  [system components]
-  (vary-meta system update-in [::active] (comp set concat) components))
-
-(defn- active-components
-  "Decide on what components are active/to-be-activated by examining the system's metadata
-   and the given dependency map."
-  [system dependencies]
-  (or (-> system meta ::active)
-      (-> dependencies meta :components)))
-
 (defn start-components
   "Start to-be-activated components and their dependencies."
   [system dependencies]
   (let [component-dependencies (-> system
-                                   (active-components dependencies)
+                                   (subsystem/active-components-from-deps
+                                     dependencies)
                                    (component-dependencies dependencies))
         components (keys component-dependencies)]
     (-> system
-        (add-active-components components)
+        (subsystem/add-active-components components)
         (component/system-using component-dependencies)
         (component/start-system components))))
 
@@ -144,7 +134,7 @@
 (defn stop-components
   "Stop all currently active components."
   [system]
-  (if-let [components (-> system meta ::active seq)]
+  (if-let [components (seq (subsystem/active-components system))]
     (-> system
         (component/stop-system components)
         (clean-components components))
@@ -152,8 +142,11 @@
 
 ;; ### Macro
 
-(defmacro defsystem
+(defmacro ^{:deprecated "0.5.0"} defsystem
   [id components & logic]
+  (println "WARN: The current defsystem syntax is deprecated and will be")
+  (println "      replaced with defsystem+'s in future versions"
+           (str "(System: " id ")."))
   (assert (vector? components) "defsystem expects a vector as 2nd parameter.")
   (assert (every? symbol? components) "defsystem expects a vector of symbols as 2nd parameter.")
   (let [[relations specifics] (split-with (complement is-class-name?) logic)]
@@ -163,11 +156,3 @@
        :peripheral/stop  stop-components
 
        ~@specifics)))
-
-;; ## Subsystem
-
-(defn subsystem
-  "Create subsystem. The resulting system will only start the given components and
-   their dependencies."
-  [system components]
-  (add-active-components system components))

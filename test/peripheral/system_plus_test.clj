@@ -1,7 +1,7 @@
-(ns peripheral.system-test
+(ns peripheral.system-plus-test
   (:require [midje.sweet :refer :all]
             [com.stuartsierra.component :as component]
-            [peripheral.system :refer :all]
+            [peripheral.system-plus :refer :all]
             [peripheral.system.subsystem :refer [subsystem]]))
 
 ;; ## Fixtures
@@ -16,9 +16,11 @@
 (def make-x
   #(X. false))
 
-(defsystem Sys [^:global g a b c]
-  (connect :a :c)
-  (connect :b :c))
+(defsystem+ Sys []
+  :g ^:global []
+  :a [:c]
+  :b [:c]
+  :c [])
 
 (def sys
   (map->Sys
@@ -26,10 +28,9 @@
            [k (make-x)])
          (into {}))))
 
-(defsystem SysWithData [^:global ^:data config
-                        ^:data   name
-                        ^:global g a]
-  (connect :a :system :name))
+(defsystem+ SysWithData [^:global config, name]
+  :g ^:global []
+  :a {:system :name})
 
 (def sys2
   (map->SysWithData

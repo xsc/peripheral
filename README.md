@@ -278,28 +278,37 @@ see a printout of the current value every 2 seconds:
 
 ### Creating a System
 
-The `defsystem` macro helps with declarativley building up your system:
+__Note:__ Starting with peripheral 0.5.0, `defsystem` is deprecated in favour of
+`defsystem+` and will be made an alias for the latter in future versions.
+
+The `defsystem+` macro helps with declarativley building up your system:
 
 ```clojure
-(p/defsystem Sys [^:global ^:data config
-                  ^:global thread-pool
-                  a b c]
-  (p/connect :a :source :c))
+(p/defsystem+ Sys [^:global config]
+  :thread-pool ^:global []
+  :a                    {:source :c}
+  :b                    []
+  :c                    [])
 ```
 
-There are two types of metadata for the system fields: `:data` which marks a plain data field (as opposed to a system component)
-and `:global` which enables automatic dependency injection to all components. As you can see, it is possible to combine both kinds
-to have e.g. system-wide configurations.
+The system consists of two sets of values: _dependencies_ (the
+parameter-vector-like list following the system name) and _components_ (the
+system body) - difference being that components will be explicitly started
+together with the system and dependencies used as they are.
 
-`connect` can be used to create a specific relationship inside the system. `(connect :a :source :c)` means "`:a` depends on `:c` and
-expects it to be injected at its key `:source`. There is also a two-argument version of `connect` which just uses the destination
-component's key/ID for injection.
+The `^:global` metadata can be attached to either to ensure that a value is
+injected into each component. Otherwise, you usually explicitly give the
+component dependencies as a vector (e.g. `[:a :c]`), as a map if you want to
+specify the injection key (e.g. `{:alias :a}`) or as a mixture of both (e.g.
+`[:a :b {:alias :c}]`).
 
-Systems, like components, can implement protocols and interfaces by appending them to the relationship specification.
+Systems, like components, can implement protocols and interfaces by appending
+them to the relationship specification.
 
 ### Example
 
-Let's create an instance of the above system using a dummy component `X` that prints its name and configuration on startup:
+Let's create an instance of the above system using a dummy component `X` that
+prints its name and configuration on startup:
 
 ```clojure
 (defrecord X [name config thread-pool]
@@ -333,24 +342,28 @@ On startup, the configuration will be distributed to all components and thread p
 ;; => #user.Sys{:config {:config-key "config-value"}, ...}
 ```
 
-We can check if all dependencies are correct (although that reponsibility lies by `stuartsierra/component`):
+We can check if all dependencies are correct
+(although that reponsibility lies with `stuartsierra/component`):
 
 ```clojure
-(map (comp :name :thread-pool #(% system)) [:a :b :c])
+(map (comp :name :thread-pool #(% *1)) [:a :b :c])
 ;; => (:thread-pool :thread-pool :thread-pool)
 ```
 
 ### Subsystems
 
-Sometimes you do not want to start all components in your system. For example, a system might consist of a producer,
-a queue and a consumer. The queue might be implemented in a persistent way (using the filesystem, RabbitMQ, Redis, ...),
-meaning that producer and consumer do not have to reside inside the same process or on the same node. So, a producer
-system only needs the producer and queue components, whilst the consumer system only relies on queue and consumer
+Sometimes you do not want to start all components in your system. For example, a
+system might consist of a producer, a queue and a consumer. The queue might be
+implemented in a persistent way (using the filesystem, RabbitMQ, Redis, ...),
+meaning that producer and consumer do not have to reside inside the same process
+or on the same node. So, a producer system only needs the producer and queue
+components, whilst the consumer system only relies on queue and consumer
 components.
 
-Instead of creating three systems (`producer-consumer`, `producer` and `consumer`) you can use peripheral's subsystem
-functionality that will only start the components you want (and their dependencies). Using the var `system` from the above
-example this might look like the following:
+Instead of creating three systems (`producer-consumer`, `producer` and
+`consumer`) you can use peripheral's subsystem functionality that will only
+start the components you want (and their dependencies). Using the var `system`
+from the above example this might look like the following:
 
 ```clojure
 (def c-only (p/subsystem system [:c]))
@@ -360,8 +373,9 @@ example this might look like the following:
 ;; => #user.Sys{:config {:config-key "config-value"}, ...}
 ```
 
-(You can achieve the same by creating a system record that contains the keys of the components to be started, of course,
-but peripheral offers you automatic dependency resolution which is nice, I guess.)
+(You can achieve the same by creating a system record that contains the keys of
+the components to be started, of course, but peripheral offers you automatic
+dependency resolution which is nice, I guess.)
 
 ## License
 
