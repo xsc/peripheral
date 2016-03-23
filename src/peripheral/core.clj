@@ -1,5 +1,5 @@
 (ns peripheral.core
-  (:require [peripheral component system]
+  (:require [peripheral component system system-plus]
             [peripheral.component attach state]
             [peripheral.system subsystem]
             [com.stuartsierra.component :as component]
@@ -10,6 +10,8 @@
 (import-vars
   [peripheral.system
    defsystem connect]
+  [peripheral.system-plus
+   defsystem+]
   [peripheral.system.subsystem
    subsystem]
   [peripheral.component
