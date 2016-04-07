@@ -1,4 +1,4 @@
-(defproject peripheral "0.5.1"
+(defproject peripheral "0.5.2-SNAPSHOT"
   :description "Component & System Creation for Stuart Sierra's Component Library."
   :url "https://github.com/xsc/peripheral"
   :license {:name "MIT License"
