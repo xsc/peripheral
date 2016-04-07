@@ -11,11 +11,17 @@
 ;; ## Startup
 
 (defn- assert-valid
-  [component system name]
-  (when-not (map? component)
+  [component system name using]
+  (when (nil? component)
     (throw
       (IllegalStateException.
-        (format "%s.%s > invalid component: %s"
+        (format "%s.%s is nil"
+                (.getSimpleName (class system))
+                name))))
+  (when-not (or (empty? using) (map? component))
+    (throw
+      (IllegalStateException.
+        (format "%s.%s has dependencies but is not a map/record: %s"
                 (.getSimpleName (class system))
                 name
                 (pr-str component)))))
@@ -45,7 +51,7 @@
             (assert-dependencies-valid name using)
             (update key #(-> %
                              (or default)
-                             (assert-valid system name)
+                             (assert-valid system name using)
                              (component/using using))))
         system))
     system components))
