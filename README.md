@@ -140,6 +140,25 @@ This expands to:
   #(p/stop %))
 ```
 
+Additionally, you can startup whole seqs of components using the
+`:components/` prefix:
+
+```clojure
+(p/defcomponent Parent [data]
+  :components/children
+  (map #(map->Child (assoc data :name (str "child-" %))) [1 2 3]))
+```
+
+peripheral will start those up in-order, unless you explicitly allow concurrent
+startup for a component list:
+
+```clojure
+(p/defcomponent Parent [data]
+  :components/children
+  (p/concurrently
+    (map #(map->Child (assoc data :name (str "child-" %))) [1 2 3])))
+```
+
 ### Lifecycle
 
 #### Active Lifecycle
