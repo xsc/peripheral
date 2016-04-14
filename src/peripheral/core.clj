@@ -1,6 +1,6 @@
 (ns peripheral.core
   (:require [peripheral component system system-plus]
-            [peripheral.component attach state]
+            [peripheral.component attach state lifecycle]
             [peripheral.system subsystem]
             [com.stuartsierra.component :as component]
             [potemkin :refer [import-vars]]))
@@ -20,6 +20,8 @@
    attach detach]
   [peripheral.component.state
    running?]
+  [peripheral.component.lifecycle
+   concurrently]
   [com.stuartsierra.component
    start stop])
 
