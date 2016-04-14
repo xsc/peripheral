@@ -4,6 +4,7 @@
              [attach :refer [attach]]
              [state :refer [running?]]]
             [peripheral.component :refer [defcomponent]]
+            [peripheral.component.lifecycle :as lifecycle]
             [com.stuartsierra.component :refer [start stop]]))
 
 ;; ## Basic Functionality
@@ -312,6 +313,18 @@
     (repeatedly (dec n) #(map->TestSeqElement {:state-atom state-atom}))
     [(map->TestSeqElement {:fail? fail?, :state-atom state-atom})]))
 
+(defcomponent ParTestElement [state-atom fail]
+  :on/start
+  (if fail
+    (throw (Exception.))
+    (swap! state-atom update :threads conj (Thread/currentThread))))
+
+(defcomponent ParTestSeq [n fail state-atom]
+  :this/as *this*
+  :components/children (lifecycle/concurrently
+                         (for [i (range n)]
+                           (map->ParTestElement (update *this* :fail = i)))))
+
 (facts "about instantiating a variable-length seq of components."
        (fact "about successful startup."
          (let [state-atom (atom [])
@@ -336,4 +349,14 @@
 
            (count @state-atom)  => 8
            (set (take 4 @state-atom)) => #{:element-started}
-           (set (drop 4 @state-atom)) => #{:element-stopped})))
+           (set (drop 4 @state-atom)) => #{:element-stopped}))
+       (fact "about concurrent startup."
+         (let [state-atom (atom {:threads #{}})
+               t (map->ParTestSeq {:n 4, :state-atom state-atom})]
+           (start t)
+           (count (:threads @state-atom)) => 4))
+       (fact "about concurrent failure."
+         (let [state-atom (atom {:threads #{}})
+               t (map->ParTestSeq {:n 4, :fail 2, :state-atom state-atom})]
+           (start t) => (throws clojure.lang.ExceptionInfo #"ParTestSeq\.children > \[2\]")
+           (count (:threads @state-atom)) => 3)))

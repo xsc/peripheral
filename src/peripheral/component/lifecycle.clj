@@ -66,10 +66,37 @@
       (component/stop component)
       (catch Throwable _))))
 
-(defn start-all
-  "Try to start all components in the given seq; shutting them down again
-   if any startup fails."
+(defn concurrently
+  "Tag the seq of components as elligible to be concurrently started.
+  The return value is the same sequence of components, but #'start-all
+  will start them concurrently."
   [component-seq]
+  (vary-meta component-seq assoc ::concurrently true))
+
+(defn- concurrently? [component-seq]
+  (::concurrently (meta component-seq)))
+
+(defn- start-all-concurrently [component-seq]
+  (let [start-one (fn [index component]
+                    (future
+                      (try
+                        (component/start component)
+                        (catch Throwable t
+                          ^::error [t index]))))
+        {red true, green nil} (->> (map-indexed start-one component-seq)
+                                   doall
+                                   (map deref)
+                                   (group-by (comp ::error meta)))]
+    (if (empty? red)
+      green
+      (let [[throwable index] (first red)]
+        (stop-all green)
+        (throw
+          (lifecycle-exception
+            (str "[" index "]")
+            throwable))))))
+
+(defn- start-all-sequentially [component-seq]
   (reduce
     (fn [started [index component]]
       (try
@@ -82,6 +109,14 @@
               t)))))
     []
     (map vector (range) component-seq)))
+
+(defn start-all
+  "Try to start all components in the given seq; shutting them down again
+   if any startup fails."
+  [component-seq]
+  (if (concurrently? component-seq)
+    (start-all-concurrently component-seq)
+    (start-all-sequentially component-seq)))
 
 ;; ## Fields
 
