@@ -313,14 +313,21 @@
     (repeatedly (dec n) #(map->TestSeqElement {:state-atom state-atom}))
     [(map->TestSeqElement {:fail? fail?, :state-atom state-atom})]))
 
-(defcomponent ParTestElement [state-atom fail]
+(defcomponent ParTestElement [latch state-atom fail]
   :on/start
   (if fail
     (throw (Exception.))
-    (swap! state-atom update :threads conj (Thread/currentThread))))
+    (do
+      (.countDown latch)
+      (assert (.await latch 1 java.util.concurrent.TimeUnit/SECONDS))
+      (swap! state-atom conj :start)))
+
+  :on/stop
+  (swap! state-atom conj :stop))
 
 (defcomponent ParTestSeq [n fail state-atom]
   :this/as *this*
+  :latch (java.util.concurrent.CountDownLatch. (if fail (dec n) n))
   :components/children (lifecycle/concurrently
                          (for [i (range n)]
                            (map->ParTestElement (update *this* :fail = i)))))
@@ -351,12 +358,12 @@
            (set (take 4 @state-atom)) => #{:element-started}
            (set (drop 4 @state-atom)) => #{:element-stopped}))
        (fact "about concurrent startup."
-         (let [state-atom (atom {:threads #{}})
+         (let [state-atom (atom [])
                t (map->ParTestSeq {:n 4, :state-atom state-atom})]
            (start t)
-           (count (:threads @state-atom)) => 4))
+           @state-atom => [:start :start :start :start]))
        (fact "about concurrent failure."
-         (let [state-atom (atom {:threads #{}})
+         (let [state-atom (atom [])
                t (map->ParTestSeq {:n 4, :fail 2, :state-atom state-atom})]
            (start t) => (throws clojure.lang.ExceptionInfo #"ParTestSeq\.children > \[2\]")
-           (count (:threads @state-atom)) => 3)))
+           @state-atom => [:start :start :start :stop :stop :stop])))
