@@ -93,7 +93,7 @@
 
 (defn- start-field
   "Given a component, field key, start and stop fns, try to start up
-   the field. Returns a tupel of `[new-component field-cleanup-fn]`."
+   the field. Returns a tuple of `[new-component field-cleanup-fn]`."
   [component k {:keys [start stop] :as spec}]
   (let [value (start component)
         component' (assoc-component component spec k value)
@@ -122,7 +122,7 @@
 
 (defn start-fields
   "Start all fields within the given component. Expects a seq of
-   `[field {:start ..., :stop ...}]` tupels."
+   `[field {:start ..., :stop ...}]` tuples."
   [component field->fns]
   (loop [component component
          remaining field->fns
@@ -138,7 +138,7 @@
       component)))
 
 (defn- stop-field
-  "Stop a single field, returning a tupel of
+  "Stop a single field, returning a tuple of
    `[false new-component]` or `[true exception]`."
   [component field {:keys [stop] :as spec}]
   (let [current-value (get component field)]
