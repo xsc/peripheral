@@ -15,7 +15,9 @@
   [peripheral.system.subsystem
    subsystem]
   [peripheral.component
-   defcomponent restart]
+   defcomponent
+   reify-component
+   restart]
   [peripheral.component.attach
    attach detach]
   [peripheral.component.state

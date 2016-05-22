@@ -5,7 +5,7 @@
              [attach :as attach]
              [lifecycle :as lifecycle]
              [state :as state]]
-            [potemkin :refer [unify-gensyms]]))
+            [potemkin :refer [unify-gensyms def-map-type]]))
 
 ;; ## Analysis
 
@@ -148,7 +148,54 @@
            ~(generate-stop logic `this##))
          ~@specifics))))
 
-;; ## Restart
+;; ## Reification
+
+(def-map-type ReifiedComponent [data start stop]
+  (assoc [_ k v]   (ReifiedComponent. (assoc data k v) start stop))
+  (dissoc [_ k]    (ReifiedComponent.(dissoc data k) start stop))
+  (get [_ k d]     (get data k d))
+  (keys [_]        (keys data))
+  (meta [_]        (meta data))
+  (with-meta [_ m] (ReifiedComponent. (with-meta data m) start stop))
+
+  component/Lifecycle
+  (start [_] (ReifiedComponent. (start data) start stop))
+  (stop  [_] (ReifiedComponent. (stop data) start stop)))
+
+(alter-meta! #'->ReifiedComponent assoc :private true)
+
+(-> (defmacro reify-component
+      "Create a one-off component (i.e. without creating an explicit component
+       record). The syntax is identical to [[defcomponent]] without the class name.
+
+       ```
+       (let [db-config {...}]
+         (reify-component
+           :db (connect! db-config) disconnect!
+           ...))
+       ```
+
+       The resulting value will implement all map interfaces, as well as the
+       `com.stuartsierra.component/Lifecycle` protocol."
+      [& impl]
+      (let [[dependencies component-logic] (if (-> impl first vector?)
+                                             [(first impl) (rest impl)]
+                                             [nil impl])
+            logic (analyze dependencies component-logic)
+            {:keys [record-fields specifics this]} logic]
+        (unify-gensyms
+          `(let [start# (fn [this##]
+                          (let [{:keys [~@record-fields]} this##]
+                            ~(generate-start logic `this##)))
+                 stop# (fn [this##]
+                         (let [{:keys [~@record-fields]} this##]
+                           ~(generate-stop logic `this##)))]
+             (->ReifiedComponent {} start# stop#)))))
+    (alter-meta!
+      assoc :arglists '([dependencies & component-logic]
+                        [& component-logic])))
+
+;; ## Utilities
 
 (defn restart
   "Restart the given component by calling `stop` and `start`."
