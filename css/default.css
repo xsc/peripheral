@@ -1,6 +1,18 @@
+@import url('https://fonts.googleapis.com/css?family=PT+Sans');
+
 body {
-    font-family: Helvetica, Arial, sans-serif;
-    font-size: 15px;
+    font-family: 'PT Sans', Helvetica, sans-serif;
+    font-size: 14px;
+}
+
+a {
+    color: #337ab7;
+    text-decoration: none;
+}
+
+a:hover {
+    color: #30426a;
+    text-decoration: underline;
 }
 
 pre, code {
@@ -19,6 +31,10 @@ h1 {
 h2 {
     font-weight: normal;
     font-size: 25px;
+}
+
+h3 > a:hover {
+    text-decoration: none;
 }
 
 .document h1, .namespace-index h1 {
@@ -57,10 +73,12 @@ h2 {
 }
 
 .sidebar.primary {
-    background: #e2e2e2;
+    background: #30426a;
     border-right: solid 1px #cccccc;
     left: 0;
     width: 250px;
+    color: white;
+    font-size: 110%;
 }
 
 .sidebar.secondary {
@@ -68,6 +86,7 @@ h2 {
     border-right: solid 1px #d7d7d7;
     left: 251px;
     width: 200px;
+    font-size: 110%;
 }
 
 #content.namespace-index, #content.document {
@@ -83,7 +102,7 @@ h2 {
 }
 
 #header {
-    background: #3f3f3f;
+    background: #2d3e63;
     box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
     z-index: 100;
 }
@@ -113,8 +132,20 @@ h2 {
     color: #f5f5f5;
 }
 
-.sidebar a {
-    color: #333;
+.sidebar.primary, .sidebar.primary a {
+    color: #b2bfdc;
+}
+
+.sidebar.primary a:hover {
+    color: white;
+}
+
+.sidebar.secondary, .sidebar.secondary a {
+    color: #738bc0;
+}
+
+.sidebar.secondary a:hover {
+    color: #2d3e63;
 }
 
 #header h2 {
@@ -137,12 +168,16 @@ h2 {
     font-weight: lighter;
 }
 
-.sidebar h3 a {
-    color: #444;
+.sidebar.primary h3.no-link {
+    text-transform: uppercase;
+    font-size: 12px;
+    color: #738bc0;
 }
 
-.sidebar h3.no-link {
-    color: #636363;
+.sidebar.secondary h3 a {
+    text-transform: uppercase;
+    font-size: 12px;
+    color: #2d3e63;
 }
 
 .sidebar ul {
@@ -163,12 +198,6 @@ h2 {
     border-left: 3px solid transparent;
     padding: 0 10px;
     white-space: nowrap;
-}
-
-.sidebar li .no-link {
-    display: block;
-    color: #777;
-    font-style: italic;
 }
 
 .sidebar li .inner {
@@ -223,12 +252,12 @@ h2 {
 }
 
 .sidebar.primary li.current a {
-    border-left: 3px solid #a33;
-    color: #a33;
+    border-left: 3px solid #e99d1a;
+    color: white;
 }
 
 .sidebar.secondary li.current a {
-    border-left: 3px solid #33a;
+    border-left: 3px solid #2d3e63;
     color: #33a;
 }
 
@@ -240,6 +269,11 @@ h2 {
     font-size: 16px;
     font-weight: bold;
     margin-bottom: 0;
+    letter-spacing: 0.05em;
+    border-bottom: solid 1px #ddd;
+    max-width: 680px;
+    background-color: #fafafa;
+    padding: 0.5em;
 }
 
 .namespace-index .topics {
@@ -368,7 +402,7 @@ h4.deprecated {
     padding: 0;
     font-size: 80%;
     margin: 15px 0;
-    line-height: 16px;
+    line-height: 1.6em;
 }
 
 .index * {
@@ -424,6 +458,10 @@ p {
     margin: 0;
 }
 
+.namespace-index {
+  font-size: 120%;
+}
+
 .namespace-index .doc {
     margin-bottom: 20px;
 }
@@ -433,7 +471,7 @@ p {
 }
 
 .markdown p, .markdown li, .markdown dt, .markdown dd, .markdown td {
-    line-height: 18px;
+    line-height: 1.6em;
 }
 
 .markdown h2 {
@@ -454,27 +492,35 @@ p {
     overflow-x: visible;
 }
 
-.markdown code, .src-link a {
-    background: #f6f6f6;
+.markdown pre > code {
+    display: block;
+    padding: 10px;
+}
+
+.markdown pre > code, .src-link a {
     border: 1px solid #e4e4e4;
     border-radius: 2px;
 }
 
-.markdown pre, pre.deps {
-    background: #f4f4f4;
-    border: 1px solid #e0e0e0;
-    border-radius: 2px;
-    padding: 5px 10px;
-    margin: 0 10px;
+.src-link a {
+    background: #f6f6f6;
+}
+
+.markdown code:not(.hljs) {
+    color: #c7254e;
+    background-color: #f9f2f4;
+    border-radius: 4px;
+    font-size: 90%;
+    padding: 2px 4px;
 }
 
 pre.deps {
     display: inline-block;
-}
-
-.markdown pre code {
-    background: transparent;
-    border: none;
+    margin: 0 10px;
+    border: 1px solid #e4e4e4;
+    border-radius: 2px;
+    padding: 10px;
+    background-color: #f6f6f6;
 }
 
 .markdown hr {
@@ -532,4 +578,45 @@ pre.deps {
     padding: 1px 4px;
     text-decoration: none;
     color: #5555bb;
+    background-color: #f6f6f6;
+}
+
+blockquote {
+    opacity: 0.6;
+    border-left: solid 2px #ddd;
+    margin-left: 0;
+    padding-left: 1em;
+}
+
+/* Responsivene Theme */
+
+@media (max-width: 860px) {
+  .sidebar {
+    display:none;
+  }
+
+  #content {
+    position: relative;
+    left: initial !important;
+    top: 66px;
+    padding: 0 3px;
+  }
+
+  #header {
+    display: flex;
+    flex-direction: column-reverse;
+    height: 58px;
+  }
+
+  #header > h1 {
+    font-size: 32px;
+  }
+
+  .namespace-index > h1 {
+    display: none;
+  }
+
+  #header h2 {
+    float: none;
+  }
 }
