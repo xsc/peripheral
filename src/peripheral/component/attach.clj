@@ -51,7 +51,7 @@
   ([component k attach-component]
    (attach component k attach-component nil))
   ([component k attach-component dependencies]
-   (assert (not (contains? component k)) "there is already a component with that key attached.")
+   (assert (not (contains? component k)) (str "there is already a component with " k " key attached."))
    (-> component
        (assoc k attach-component)
        (add-attach-key k dependencies))))
