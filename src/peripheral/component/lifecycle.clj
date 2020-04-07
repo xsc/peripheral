@@ -34,10 +34,11 @@
 
 (defn- create-lifecycle-exception
   [^Throwable t fqn]
-  (let [root-cause (loop [^Throwable t t]
-                     (if-let [cause (.getCause t)]
-                       (recur cause)
-                       t))]
+  (let [^Throwable root-cause
+        (loop [^Throwable t t]
+          (if-let [cause (.getCause t)]
+            (recur cause)
+            t))]
     (ex-info
       (format "%s > %s [%s]"
               fqn

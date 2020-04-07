@@ -12,7 +12,8 @@
   :profiles {:dev {:dependencies [[midje "1.8.3"]
                                   [org.clojure/tools.namespace "0.2.11"]]
                    :plugins [[lein-midje "3.1.3"]]
-                   :exclusions [org.clojure/clojure]}
+                   :exclusions [org.clojure/clojure]
+                   :global-vars {*warn-on-reflection* true}}
              :codox {:dependencies [[org.clojure/tools.reader "1.0.0-beta2"]
                                     [codox-theme-rdash "0.1.1"]]
                      :plugins [[lein-codox "0.10.2"]]
