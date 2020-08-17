@@ -22,17 +22,20 @@
 (defn start-attached-components
   "Start all attached components."
   [component]
-  (->> (for [[component-key dependencies] (-> component meta ::attach)]
-         (when-let [c (get component component-key)]
-           (let [component-with-dependencies (reduce
-                                               (fn [c [assoc-key deps-key]]
-                                                 (assoc c assoc-key (get component deps-key)))
-                                               c dependencies)]
-             (vector
-               component-key
-               (component/start component-with-dependencies)))))
-       (into {})
-       (merge component)))
+  (loop [component component
+         remaining (-> component meta ::attach seq)]
+    (if remaining
+      (let [[[component-key dependencies] & rst] remaining]
+        (when-let [c (get component component-key)]
+          (let [component-with-dependencies (reduce
+                                              (fn [c [assoc-key deps-key]]
+                                                (assoc c assoc-key (get component deps-key)))
+                                              c dependencies)
+                started    (component/start component-with-dependencies)
+                component' (merge component {component-key started})
+                ]
+            (recur component' rst))))
+        component)))
 
 (defn stop-attached-components
   "Stop all attached components."
